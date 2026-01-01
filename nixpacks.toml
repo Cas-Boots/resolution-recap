@@ -1,6 +1,6 @@
 # Nixpacks configuration for SvelteKit with better-sqlite3
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+nixPkgs = ["nodejs_22", "python3", "gcc", "gnumake"]
 
 [phases.install]
 cmds = ["npm ci"]
