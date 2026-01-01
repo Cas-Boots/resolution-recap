@@ -1,0 +1,17 @@
+# Nixpacks configuration for SvelteKit with better-sqlite3
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node build"
+
+[variables]
+NODE_ENV = "production"
+HOST = "0.0.0.0"
+PORT = "3000"

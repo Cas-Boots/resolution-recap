@@ -1,0 +1,46 @@
+name: Daily Backup
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create backups directory
+        run: mkdir -p backups
+
+      - name: Fetch backup from server
+        run: |
+          curl -s "${{ secrets.APP_URL }}/api/export?token=${{ secrets.BACKUP_TOKEN }}" \
+            -o "backups/backup-$(date +%Y-%m-%d).json"
+
+      - name: Check if backup was successful
+        run: |
+          if [ ! -s "backups/backup-$(date +%Y-%m-%d).json" ]; then
+            echo "Backup file is empty or missing"
+            exit 1
+          fi
+          # Validate JSON
+          cat "backups/backup-$(date +%Y-%m-%d).json" | python -m json.tool > /dev/null
+
+      - name: Remove backups older than 30 days
+        run: |
+          find backups -name "backup-*.json" -mtime +30 -delete || true
+
+      - name: Commit and push backup
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add backups/
+          git diff --staged --quiet || git commit -m "Daily backup $(date +%Y-%m-%d)"
+          git push
