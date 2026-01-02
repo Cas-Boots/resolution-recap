@@ -1,4 +1,26 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
+import os from 'os';
+
+// Log network interfaces at startup
+function logNetworkInterfaces() {
+	const interfaces = os.networkInterfaces();
+	console.log('🌐 Network interfaces:');
+	for (const [name, addrs] of Object.entries(interfaces)) {
+		if (!addrs) continue;
+		for (const addr of addrs) {
+			if (addr.internal) continue; // Skip loopback
+			console.log(`   ${name}: ${addr.address} (${addr.family})`);
+		}
+	}
+	// Also log loopback for debugging
+	const loopback = interfaces['lo'] || interfaces['lo0'];
+	if (loopback) {
+		console.log('   Loopback:');
+		for (const addr of loopback) {
+			console.log(`     ${addr.address} (${addr.family})`);
+		}
+	}
+}
 
 // Startup logging
 console.log('═══════════════════════════════════════════════════');
@@ -9,6 +31,7 @@ console.log('📍 DB_PATH:', process.env.DB_PATH || './data/resolution-recap.db'
 console.log('📍 HOST:', process.env.HOST || 'localhost');
 console.log('📍 PORT:', process.env.PORT || '5173');
 console.log('📍 ORIGIN:', process.env.ORIGIN || '(not set)');
+logNetworkInterfaces();
 console.log('═══════════════════════════════════════════════════');
 
 // Test database connection on startup
