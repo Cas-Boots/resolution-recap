@@ -26,7 +26,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    networks:
+      - dokploy-network
 
 volumes:
   resolution-recap-data:
     name: resolution-recap-data
+
+networks:
+  dokploy-network:
+    external: true
