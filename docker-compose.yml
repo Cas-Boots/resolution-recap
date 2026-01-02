@@ -1,5 +1,6 @@
 # Docker Compose for Resolution Recap
-# Configured for Dokploy deployment automation (Docker Swarm mode)
+# Configured for Dokploy deployment
+# NOTE: Domain/routing is configured in Dokploy UI, not here
 
 services:
   app:
@@ -32,16 +33,6 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.resolution-recap.rule=Host(`resolution-recap.avs-api.nl`)"
-        - "traefik.http.routers.resolution-recap.entrypoints=websecure"
-        - "traefik.http.routers.resolution-recap.tls.certResolver=letsencrypt"
-        - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
-        # Security headers
-        - "traefik.http.middlewares.resolution-recap-headers.headers.stsSeconds=31536000"
-        - "traefik.http.middlewares.resolution-recap-headers.headers.stsIncludeSubdomains=true"
-        - "traefik.http.routers.resolution-recap.middlewares=resolution-recap-headers"
       resources:
         limits:
           cpus: '1.0'
