@@ -1,10 +1,10 @@
 import Database from 'better-sqlite3';
-import { DB_PATH, TRACKER_PIN, ADMIN_PIN } from '$env/static/private';
+import { TRACKER_PIN, ADMIN_PIN } from '$env/static/private';
 import path from 'path';
 import fs from 'fs';
 
-// Ensure data directory exists
-const dbPath = DB_PATH || './data/resolution-recap.db';
+// Use process.env for DB_PATH since it's optional and should work without being set at build time
+const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
 	fs.mkdirSync(dbDir, { recursive: true });
@@ -970,6 +970,121 @@ export function exportAllData() {
 		settings: db.prepare('SELECT key, updated_at FROM settings').all(), // Don't export PIN values!
 		exportedAt: new Date().toISOString()
 	};
+}
+
+export interface ImportData {
+	seasons?: Array<{ id: number; year: number; name: string; is_active: number; created_at: string }>;
+	people?: Array<{ id: number; name: string; emoji: string; is_active: number; created_at: string }>;
+	metrics?: Array<{ id: number; name: string; emoji: string; is_active: number; created_at: string }>;
+	entries?: Array<{ id: number; person_id: number; metric_id: number; season_id: number; value: number; date: string; notes: string | null; created_at: string; updated_at: string }>;
+	entry_audit?: Array<{ id: number; entry_id: number; action: string; old_value: string | null; new_value: string | null; changed_at: string; changed_by: string }>;
+	exportedAt?: string;
+}
+
+export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'merge'): { success: boolean; imported: Record<string, number>; errors: string[] } {
+	const imported: Record<string, number> = {};
+	const errors: string[] = [];
+	
+	try {
+		db.exec('BEGIN TRANSACTION');
+		
+		if (mode === 'replace') {
+			// Clear existing data (in reverse order of dependencies)
+			db.exec('DELETE FROM entry_audit');
+			db.exec('DELETE FROM entries');
+			db.exec('DELETE FROM goals');
+			db.exec('DELETE FROM country_visits');
+			db.exec('DELETE FROM metrics');
+			db.exec('DELETE FROM people');
+			db.exec('DELETE FROM seasons');
+		}
+		
+		// Import seasons
+		if (data.seasons && data.seasons.length > 0) {
+			const insertSeason = db.prepare(`
+				INSERT OR REPLACE INTO seasons (id, year, name, is_active, created_at)
+				VALUES (?, ?, ?, ?, ?)
+			`);
+			for (const season of data.seasons) {
+				try {
+					insertSeason.run(season.id, season.year, season.name, season.is_active, season.created_at);
+					imported.seasons = (imported.seasons || 0) + 1;
+				} catch (e) {
+					errors.push(`Season ${season.year}: ${(e as Error).message}`);
+				}
+			}
+		}
+		
+		// Import people
+		if (data.people && data.people.length > 0) {
+			const insertPerson = db.prepare(`
+				INSERT OR REPLACE INTO people (id, name, emoji, is_active, created_at)
+				VALUES (?, ?, ?, ?, ?)
+			`);
+			for (const person of data.people) {
+				try {
+					insertPerson.run(person.id, person.name, person.emoji, person.is_active, person.created_at);
+					imported.people = (imported.people || 0) + 1;
+				} catch (e) {
+					errors.push(`Person ${person.name}: ${(e as Error).message}`);
+				}
+			}
+		}
+		
+		// Import metrics
+		if (data.metrics && data.metrics.length > 0) {
+			const insertMetric = db.prepare(`
+				INSERT OR REPLACE INTO metrics (id, name, emoji, is_active, created_at)
+				VALUES (?, ?, ?, ?, ?)
+			`);
+			for (const metric of data.metrics) {
+				try {
+					insertMetric.run(metric.id, metric.name, metric.emoji, metric.is_active, metric.created_at);
+					imported.metrics = (imported.metrics || 0) + 1;
+				} catch (e) {
+					errors.push(`Metric ${metric.name}: ${(e as Error).message}`);
+				}
+			}
+		}
+		
+		// Import entries
+		if (data.entries && data.entries.length > 0) {
+			const insertEntry = db.prepare(`
+				INSERT OR REPLACE INTO entries (id, person_id, metric_id, season_id, value, date, notes, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`);
+			for (const entry of data.entries) {
+				try {
+					insertEntry.run(entry.id, entry.person_id, entry.metric_id, entry.season_id, entry.value, entry.date, entry.notes, entry.created_at, entry.updated_at);
+					imported.entries = (imported.entries || 0) + 1;
+				} catch (e) {
+					errors.push(`Entry ${entry.id}: ${(e as Error).message}`);
+				}
+			}
+		}
+		
+		// Import entry_audit
+		if (data.entry_audit && data.entry_audit.length > 0) {
+			const insertAudit = db.prepare(`
+				INSERT OR REPLACE INTO entry_audit (id, entry_id, action, old_value, new_value, changed_at, changed_by)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`);
+			for (const audit of data.entry_audit) {
+				try {
+					insertAudit.run(audit.id, audit.entry_id, audit.action, audit.old_value, audit.new_value, audit.changed_at, audit.changed_by);
+					imported.entry_audit = (imported.entry_audit || 0) + 1;
+				} catch (e) {
+					errors.push(`Audit ${audit.id}: ${(e as Error).message}`);
+				}
+			}
+		}
+		
+		db.exec('COMMIT');
+		return { success: true, imported, errors };
+	} catch (e) {
+		db.exec('ROLLBACK');
+		return { success: false, imported, errors: [...errors, (e as Error).message] };
+	}
 }
 
 // PIN management functions
