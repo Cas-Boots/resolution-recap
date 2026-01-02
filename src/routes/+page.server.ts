@@ -2,7 +2,8 @@ import type { PageServerLoad } from './$types';
 import { getActiveSeason, getSeasonStats, getActiveMetrics, getActivePeople, getRecentEntries, getDailyCountsForSparkline, getTodayEntries, getWeeklyComparison, getStreaksSimple, getGoalsWithProgress } from '$lib/server/db';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.role !== 'tracker') {
+	// Allow both tracker and admin roles to view the dashboard
+	if (locals.role !== 'tracker' && locals.role !== 'admin') {
 		return { authorized: false };
 	}
 

@@ -778,17 +778,17 @@
 
 	<!-- Confirmation Modal -->
 	{#if pendingAction}
-		<div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-			<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
-				<div class="text-5xl mb-4">{pendingAction.personEmoji}</div>
-				<h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Confirm Entry</h2>
-				<p class="text-gray-600 dark:text-gray-300 mb-4">
+		<div class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+			<div class="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl p-5 sm:p-6 w-full sm:max-w-sm text-center safe-area-bottom">
+				<div class="text-4xl sm:text-5xl mb-3 sm:mb-4">{pendingAction.personEmoji}</div>
+				<h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-white mb-2">Confirm Entry</h2>
+				<p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">
 					Add <strong>+1 {pendingAction.metricName}</strong> {getMetricEmoji(pendingAction.metricName)} for <strong>{pendingAction.personName}</strong> today?
 				</p>
 				
 				<!-- Duplicate warning -->
 				{#if duplicateWarning}
-					<div class="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl text-amber-800 dark:text-amber-200 text-sm">
+					<div class="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl text-amber-800 dark:text-amber-200 text-xs sm:text-sm">
 						<p class="font-semibold">⚠️ Possible duplicate!</p>
 						<p>{duplicateWarning.personName} already has a {duplicateWarning.metricName} entry for today{duplicateWarning.tags ? ` (${duplicateWarning.tags})` : ''}.</p>
 					</div>
@@ -796,14 +796,14 @@
 				
 				<!-- Sport activity selection -->
 				{#if isSportingAction()}
-					<div class="mb-4">
-						<p class="text-sm text-gray-500 dark:text-gray-400 mb-2">What activity?</p>
-						<div class="flex flex-wrap gap-2 justify-center max-h-48 overflow-y-auto">
+					<div class="mb-3 sm:mb-4">
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">What activity?</p>
+						<div class="flex flex-wrap gap-1.5 sm:gap-2 justify-center max-h-40 sm:max-h-48 overflow-y-auto">
 							{#each SPORT_ACTIVITIES as activity}
 								<button
 									type="button"
 									onclick={() => selectedSportTag = selectedSportTag === activity.value ? null : activity.value}
-									class="px-3 py-2 text-sm rounded-lg transition-colors {selectedSportTag === activity.value 
+									class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors {selectedSportTag === activity.value 
 										? 'bg-indigo-600 text-white' 
 										: 'bg-gray-100 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200'}"
 								>
@@ -814,17 +814,17 @@
 					</div>
 				{/if}
 				
-				<div class="flex gap-3">
+				<div class="flex gap-2 sm:gap-3">
 					<button
 						onclick={cancelAction}
-						class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+						class="flex-1 py-2.5 sm:py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm sm:text-base"
 					>
 						Cancel
 					</button>
 					<button
 						onclick={confirmAction}
 						disabled={loading}
-						class="flex-1 py-3 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-semibold rounded-xl disabled:opacity-50 transition-colors"
+						class="flex-1 py-2.5 sm:py-3 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-semibold rounded-xl disabled:opacity-50 transition-colors text-sm sm:text-base"
 					>
 						{loading ? '...' : duplicateWarning ? 'Add anyway' : 'Confirm'}
 					</button>
@@ -851,7 +851,7 @@
 							setTimeout(() => successMessage = '', 2000);
 						}
 					}}
-					class="bg-indigo-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium flex items-center gap-2 hover:bg-indigo-600 transition-colors"
+					class="bg-indigo-500 text-white px-3 sm:px-4 py-2 rounded-full shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2 hover:bg-indigo-600 transition-colors"
 				>
 					⏳ {offlinePending} pending {online ? '(tap to sync)' : ''}
 				</button>
@@ -861,13 +861,13 @@
 
 	<!-- Success Toast with Undo -->
 	{#if successMessage}
-		<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
-			<div class="bg-green-500 text-white px-6 py-3 rounded-full shadow-lg font-medium animate-pulse flex items-center gap-3">
-				✅ {successMessage}
+		<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-none">
+			<div class="bg-green-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg text-sm sm:text-base font-medium animate-pulse flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+				<span class="flex items-center gap-1">✅ {successMessage}</span>
 				{#if lastEntryId}
 					<button
 						onclick={undoLastEntry}
-						class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-sm transition-colors"
+						class="bg-white/20 hover:bg-white/30 px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm transition-colors whitespace-nowrap"
 					>
 						↩️ Undo
 					</button>
@@ -876,48 +876,50 @@
 			
 			<!-- Achievement Unlocked Toast -->
 			{#if newAchievements.length > 0}
-				<div class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-full shadow-lg font-medium animate-bounce">
+				<div class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg text-sm sm:text-base font-medium animate-bounce text-center">
 					🏆 Achievement{newAchievements.length > 1 ? 's' : ''}: {newAchievements.map(a => `${a.emoji} ${a.name}`).join(', ')}
 				</div>
 			{/if}
 		</div>
 	{/if}
 
-	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-		<div class="flex items-center justify-between flex-wrap gap-4">
+	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div>
-				<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">📊 Dashboard</h1>
+				<h1 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-1">📊 Dashboard</h1>
 				{#if data.season}
-					<p class="text-gray-500">{data.season.name}</p>
+					<p class="text-sm sm:text-base text-gray-500">{data.season.name}</p>
 				{/if}
 			</div>
 			
-			<div class="flex items-center gap-4 flex-wrap">
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
 				<!-- View Mode Toggle -->
-				<div class="inline-flex bg-gray-100 dark:bg-gray-800 rounded-2xl p-1 shadow-inner gap-1">
-					<button
-						onclick={() => { viewMode = 'default'; selectedLeaderboardMetric = null; }}
-						class="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 {viewMode === 'default' ? 'bg-white dark:bg-gray-700 shadow-lg text-indigo-600 dark:text-indigo-400 scale-[1.02]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'}"
-					>
-						<span class="text-lg">📊</span>
-						<span>Stats</span>
-					</button>
-					{#each data.metrics || [] as metric}
+				<div class="w-full sm:w-auto overflow-x-auto -mx-1 px-1 pb-1 sm:pb-0 scrollbar-hide">
+					<div class="inline-flex bg-gray-100 dark:bg-gray-800 rounded-2xl p-1 shadow-inner gap-1 min-w-max">
 						<button
-							onclick={() => { viewMode = 'leaderboard'; selectedLeaderboardMetric = metric.name; }}
-							class="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 {viewMode === 'leaderboard' && selectedLeaderboardMetric === metric.name ? 'bg-white dark:bg-gray-700 shadow-lg text-amber-600 dark:text-amber-400 scale-[1.02]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'}"
+							onclick={() => { viewMode = 'default'; selectedLeaderboardMetric = null; }}
+							class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 {viewMode === 'default' ? 'bg-white dark:bg-gray-700 shadow-lg text-indigo-600 dark:text-indigo-400 scale-[1.02]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'}"
 						>
-							<span class="text-lg">{getMetricEmoji(metric.name)}</span>
-							<span>{metric.name}</span>
+							<span class="text-base sm:text-lg">📊</span>
+							<span>Stats</span>
 						</button>
-					{/each}
+						{#each data.metrics || [] as metric}
+							<button
+								onclick={() => { viewMode = 'leaderboard'; selectedLeaderboardMetric = metric.name; }}
+								class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 {viewMode === 'leaderboard' && selectedLeaderboardMetric === metric.name ? 'bg-white dark:bg-gray-700 shadow-lg text-amber-600 dark:text-amber-400 scale-[1.02]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'}"
+							>
+								<span class="text-base sm:text-lg">{getMetricEmoji(metric.name)}</span>
+								<span>{metric.name}</span>
+							</button>
+						{/each}
+					</div>
 				</div>
 				
 				<!-- Time Period Filter -->
-				<div class="relative">
+				<div class="relative w-full sm:w-auto">
 					<select
 						bind:value={selectedPeriod}
-						class="appearance-none pl-4 pr-10 py-2.5 bg-white dark:bg-gray-800 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 transition-all"
+						class="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 bg-white dark:bg-gray-800 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 transition-all"
 					>
 						<option value="all">📅  All Time</option>
 						<option value="month">🗓️  This Month</option>
@@ -949,22 +951,22 @@
 	{:else}
 		<!-- TODAY'S ACTIVITY SUMMARY -->
 		{#if todaySummary}
-			<div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-5 text-white">
-				<div class="flex items-center justify-between mb-3">
-					<h2 class="text-lg font-bold flex items-center gap-2">
+			<div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-4 sm:p-5 text-white">
+				<div class="flex items-center justify-between mb-3 gap-2">
+					<h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
 						☀️ Today's Activity
 					</h2>
-					<span class="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
+					<span class="bg-white/20 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap">
 						{todaySummary.totalCount} {todaySummary.totalCount === 1 ? 'entry' : 'entries'}
 					</span>
 				</div>
-				<div class="flex flex-wrap gap-3">
+				<div class="flex flex-wrap gap-2 sm:gap-3">
 					{#each todaySummary.byPerson as person}
-						<div class="bg-white/15 backdrop-blur rounded-xl px-4 py-2 flex items-center gap-2">
-							<span class="text-xl">{person.emoji}</span>
+						<div class="bg-white/15 backdrop-blur rounded-xl px-3 sm:px-4 py-2 flex items-center gap-2">
+							<span class="text-lg sm:text-xl">{person.emoji}</span>
 							<div>
-								<div class="font-medium text-sm">{person.name}</div>
-								<div class="text-xs opacity-80">
+								<div class="font-medium text-xs sm:text-sm">{person.name}</div>
+								<div class="text-[10px] sm:text-xs opacity-80">
 									{person.metrics.map(m => getMetricEmoji(m)).join(' ')}
 									{person.metrics.length}x
 								</div>
@@ -986,26 +988,26 @@
 		{/if}
 
 		<!-- QUICK ACTIONS - Most prominent section -->
-		<div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
-			<h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+		<div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+			<h2 class="text-base sm:text-lg font-bold mb-3 sm:mb-4 flex flex-wrap items-center gap-2">
 				⚡ Quick Add
-				<span class="text-sm font-normal opacity-80">— tap to log today</span>
+				<span class="text-xs sm:text-sm font-normal opacity-80">— tap to log today</span>
 			</h2>
 			
-			<div class="space-y-4">
+			<div class="space-y-3 sm:space-y-4">
 				{#each data.metrics || [] as metric}
 					<div>
-						<div class="text-sm opacity-80 mb-2 flex items-center gap-1">
+						<div class="text-xs sm:text-sm opacity-80 mb-2 flex items-center gap-1">
 							{getMetricEmoji(metric.name)} {metric.name}
 						</div>
-						<div class="flex flex-wrap gap-2">
+						<div class="grid grid-cols-2 xs:flex xs:flex-wrap gap-2">
 							{#each data.people || [] as person}
 								<button
 									onclick={() => showConfirmation(person.id, person.name, person.emoji || '👤', metric.id, metric.name)}
-									class="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl font-medium transition-all active:scale-95 border border-white/20 flex items-center gap-2"
+									class="px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl text-sm sm:text-base font-medium transition-all active:scale-95 border border-white/20 flex items-center justify-center gap-1.5 sm:gap-2"
 								>
-									<span class="text-lg">{person.emoji || '👤'}</span>
-									{person.name}
+									<span class="text-base sm:text-lg">{person.emoji || '👤'}</span>
+									<span class="truncate">{person.name}</span>
 								</button>
 							{/each}
 						</div>
@@ -1013,7 +1015,7 @@
 				{/each}
 			</div>
 			
-			<p class="text-xs opacity-60 mt-4">
+			<p class="text-[10px] sm:text-xs opacity-60 mt-3 sm:mt-4">
 				Need to adjust the date or add notes? Use the <a href="{base}/add" class="underline">full form</a>.
 			</p>
 		</div>
@@ -1021,60 +1023,60 @@
 		<!-- Stats Summary -->
 		{#if statsGrid.length === 0}
 			<!-- Enhanced Empty State -->
-			<div class="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-8 text-center">
-				<div class="text-6xl mb-4">🎯</div>
-				<h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Welcome to Resolution Recap!</h2>
-				<p class="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
+			<div class="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 sm:p-8 text-center">
+				<div class="text-5xl sm:text-6xl mb-3 sm:mb-4">🎯</div>
+				<h2 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-2">Welcome to Resolution Recap!</h2>
+				<p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-md mx-auto">
 					Track your daily habits and goals together. Start by logging your first activity using the Quick Add buttons above.
 				</p>
 				
-				<div class="grid md:grid-cols-3 gap-4 text-left max-w-2xl mx-auto">
-					<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-						<div class="text-2xl mb-2">1️⃣</div>
-						<h3 class="font-semibold text-gray-800 dark:text-white">Tap Quick Add</h3>
-						<p class="text-sm text-gray-500 dark:text-gray-400">Select a person and activity type to log</p>
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-left max-w-2xl mx-auto">
+					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
+						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">1️⃣</div>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Tap Quick Add</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Select a person and activity type to log</p>
 					</div>
-					<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-						<div class="text-2xl mb-2">2️⃣</div>
-						<h3 class="font-semibold text-gray-800 dark:text-white">Build Streaks</h3>
-						<p class="text-sm text-gray-500 dark:text-gray-400">Log daily to build your 🔥 streak</p>
+					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
+						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">2️⃣</div>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Build Streaks</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Log daily to build your 🔥 streak</p>
 					</div>
-					<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-						<div class="text-2xl mb-2">3️⃣</div>
-						<h3 class="font-semibold text-gray-800 dark:text-white">Reach Goals</h3>
-						<p class="text-sm text-gray-500 dark:text-gray-400">Watch your progress grow over time</p>
+					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
+						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">3️⃣</div>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Reach Goals</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Watch your progress grow over time</p>
 					</div>
 				</div>
 				
-				<div class="mt-6 text-sm text-gray-400 dark:text-gray-500">
+				<div class="hidden sm:block mt-6 text-sm text-gray-400 dark:text-gray-500">
 					💡 Tip: On desktop, use keyboard shortcuts for faster logging!
 				</div>
 			</div>
 		{:else if viewMode === 'leaderboard' && selectedLeaderboardMetric}
 			<!-- Metric-Specific Leaderboard View -->
 			<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-				<div class="bg-gradient-to-r from-yellow-500 to-orange-500 px-6 py-4">
-					<h2 class="text-xl font-bold text-white flex items-center gap-2">
+				<div class="bg-gradient-to-r from-yellow-500 to-orange-500 px-4 sm:px-6 py-3 sm:py-4">
+					<h2 class="text-base sm:text-xl font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
 						{getMetricEmoji(selectedLeaderboardMetric)} {selectedLeaderboardMetric} Leaderboard
-						<span class="text-sm font-normal opacity-80">— {selectedPeriod === 'all' ? 'All Time' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'week' ? 'This Week' : 'Today'}</span>
+						<span class="text-xs sm:text-sm font-normal opacity-80">— {selectedPeriod === 'all' ? 'All Time' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'week' ? 'This Week' : 'Today'}</span>
 					</h2>
 				</div>
 				<div class="divide-y dark:divide-gray-700">
 					{#each metricLeaderboard as row, index}
 						{@const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
 						{@const count = row.metricCount}
-						<div class="px-6 py-4 flex items-center gap-4 {index < 3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}">
-							<div class="text-2xl w-10 text-center">{medal}</div>
-							<div class="text-3xl">{row.personEmoji}</div>
-							<div class="flex-1">
-								<div class="font-bold text-lg text-gray-800 dark:text-white">{row.personName}</div>
-								<div class="text-sm text-gray-500 dark:text-gray-400">
+						<div class="px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-4 {index < 3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}">
+							<div class="text-xl sm:text-2xl w-8 sm:w-10 text-center flex-shrink-0">{medal}</div>
+							<div class="text-2xl sm:text-3xl flex-shrink-0">{row.personEmoji}</div>
+							<div class="flex-1 min-w-0">
+								<div class="font-bold text-base sm:text-lg text-gray-800 dark:text-white truncate">{row.personName}</div>
+								<div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
 									{count === 0 ? 'No entries yet' : count === 1 ? '1 entry' : `${count} entries`}
 								</div>
 							</div>
-							<div class="text-right">
-								<div class="text-3xl font-bold text-amber-600 dark:text-amber-400">{count}</div>
-								<div class="text-xs text-gray-400">{getMetricEmoji(selectedLeaderboardMetric)}</div>
+							<div class="text-right flex-shrink-0">
+								<div class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{count}</div>
+								<div class="text-[10px] sm:text-xs text-gray-400">{getMetricEmoji(selectedLeaderboardMetric)}</div>
 							</div>
 						</div>
 					{/each}
@@ -1082,10 +1084,10 @@
 			</div>
 		{:else}
 			<!-- Mobile cards with swipe -->
-			<div class="md:hidden space-y-4">
+			<div class="md:hidden space-y-3">
 				<!-- Swipe hint -->
 				{#if data.metrics && data.metrics.length >= 2}
-					<div class="text-center text-xs text-white/60 flex items-center justify-center gap-4">
+					<div class="text-center text-[10px] sm:text-xs text-white/60 flex items-center justify-center gap-3 sm:gap-4 px-2">
 						<span>← swipe for {data.metrics[1]?.name}</span>
 						<span>swipe for {data.metrics[0]?.name} →</span>
 					</div>
@@ -1095,7 +1097,7 @@
 					{@const swipeDelta = isActiveSwipe ? swipeCurrentX - swipeStartX : 0}
 					{@const isExpanded = expandedPersonId === row.personId}
 					<div 
-						class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 relative overflow-hidden touch-pan-y transition-all"
+						class="bg-white dark:bg-gray-800 rounded-xl shadow p-3 sm:p-4 relative overflow-hidden touch-pan-y transition-all"
 						ontouchstart={(e) => handleRowTouchStart(e, { id: row.personId, name: row.personName, emoji: row.personEmoji })}
 						ontouchmove={handleRowTouchMove}
 						ontouchend={handleRowTouchEnd}
@@ -1110,15 +1112,15 @@
 						
 						<!-- Clickable header to expand -->
 						<button 
-							class="w-full text-left font-semibold text-lg text-gray-800 dark:text-white mb-3 flex items-center gap-2"
+							class="w-full text-left font-semibold text-base sm:text-lg text-gray-800 dark:text-white mb-2 sm:mb-3 flex items-center gap-2"
 							onclick={() => togglePersonExpand(row.personId)}
 						>
-							<span class="text-2xl">{row.personEmoji}</span>
-							<span class="flex-1">{row.personName}</span>
-							<span class="text-gray-400 text-sm transition-transform {isExpanded ? 'rotate-180' : ''}">▼</span>
+							<span class="text-xl sm:text-2xl">{row.personEmoji}</span>
+							<span class="flex-1 truncate">{row.personName}</span>
+							<span class="text-gray-400 text-xs sm:text-sm transition-transform flex-shrink-0 {isExpanded ? 'rotate-180' : ''}">▼</span>
 						</button>
 						
-						<div class="grid grid-cols-2 gap-3">
+						<div class="grid grid-cols-2 gap-2 sm:gap-3">
 							{#each metricNames as metric}
 								{@const metricId = row.metrics[metric]?.metricId}
 								{@const optimisticCount = getOptimisticCount(row.personId, metric, row.metrics[metric]?.count || 0)}
@@ -1130,36 +1132,36 @@
 								{@const isAnimating = animatingCounters.has(`${row.personId}-${metric}`)}
 								<button
 									onclick={() => showConfirmation(row.personId, row.personName, row.personEmoji, row.metrics[metric]?.metricId, metric)}
-									class="bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg p-3 text-center transition-colors group relative"
+									class="bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg p-2 sm:p-3 text-center transition-colors group relative active:scale-95"
 								>
-									<div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform {hasOptimistic ? 'animate-pulse' : ''} {isAnimating ? 'counter-animate' : ''}">
+									<div class="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform {hasOptimistic ? 'animate-pulse' : ''} {isAnimating ? 'counter-animate' : ''}">
 										{optimisticCount}
 									</div>
-									<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{metric}</div>
+									<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 truncate">{metric}</div>
 									
 									<!-- Streak indicator -->
 									{#if streak && streak.current > 0}
-										<div class="text-[10px] text-orange-500 font-medium mt-0.5">
-											🔥 {streak.current} day{streak.current > 1 ? 's' : ''}
+										<div class="text-[9px] sm:text-[10px] text-orange-500 font-medium mt-0.5">
+											🔥 {streak.current}d
 										</div>
 									{/if}
 									
 									<!-- Goal progress bar -->
 									{#if goal}
-										<div class="mt-2">
-											<div class="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+										<div class="mt-1.5 sm:mt-2">
+											<div class="h-1 sm:h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
 												<div 
 													class="h-full rounded-full transition-all {goal.percentage >= 100 ? 'bg-green-500' : 'bg-indigo-500'}"
 													style="width: {goal.percentage}%"
 												></div>
 											</div>
-											<div class="text-[10px] text-gray-400 mt-0.5">{goal.current}/{goal.target}</div>
+											<div class="text-[9px] sm:text-[10px] text-gray-400 mt-0.5">{goal.current}/{goal.target}</div>
 										</div>
 									{/if}
 									
 									<!-- Weekly comparison badge -->
 									{#if weeklyDiff && weeklyDiff.diff !== 0}
-										<div class="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold {weeklyDiff.diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}">
+										<div class="absolute -top-1 -right-1 px-1 sm:px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold {weeklyDiff.diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}">
 											{weeklyDiff.diff > 0 ? '+' : ''}{weeklyDiff.diff}
 										</div>
 									{/if}
@@ -1341,28 +1343,30 @@
 		<!-- Recent Entries -->
 		{#if data.recentEntries?.length > 0}
 			<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-				<div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b dark:border-gray-600">
-					<h2 class="font-semibold text-gray-700 dark:text-gray-200">🕐 Recent Entries</h2>
+				<div class="bg-gray-50 dark:bg-gray-700 px-3 sm:px-4 py-2 sm:py-3 border-b dark:border-gray-600">
+					<h2 class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">🕐 Recent Entries</h2>
 				</div>
 				<div class="divide-y dark:divide-gray-700">
 					{#each data.recentEntries.slice(0, 8) as entry}
-						<div class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-							<span class="text-xl">{entry.person_emoji || '👤'}</span>
+						<div class="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+							<span class="text-lg sm:text-xl flex-shrink-0">{entry.person_emoji || '👤'}</span>
 							<div class="flex-1 min-w-0">
-								<div class="font-medium text-gray-800 dark:text-white truncate flex items-center gap-2">
-									{entry.person_name} · {entry.metric_name}
+								<div class="font-medium text-sm sm:text-base text-gray-800 dark:text-white truncate flex items-center gap-1.5 sm:gap-2">
+									<span class="truncate">{entry.person_name}</span>
+									<span class="text-gray-400">·</span>
+									<span class="truncate">{entry.metric_name}</span>
 									{#if entry.notes}
-										<span class="text-amber-500" title={entry.notes}>📝</span>
+										<span class="text-amber-500 flex-shrink-0" title={entry.notes}>📝</span>
 									{/if}
 								</div>
-								<div class="text-xs text-gray-500 dark:text-gray-400">
+								<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
 									{new Date(entry.entry_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
 									{#if entry.notes}
-										<span class="italic text-gray-400 dark:text-gray-500 ml-1">"{entry.notes.substring(0, 40)}{entry.notes.length > 40 ? '...' : ''}"</span>
+										<span class="hidden sm:inline italic text-gray-400 dark:text-gray-500 ml-1">"{entry.notes.substring(0, 40)}{entry.notes.length > 40 ? '...' : ''}"</span>
 									{/if}
 								</div>
 							</div>
-							<span class="text-xs text-gray-400 whitespace-nowrap">
+							<span class="text-[10px] sm:text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
 								{formatTimeAgo(entry.created_at)}
 							</span>
 						</div>

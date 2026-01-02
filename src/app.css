@@ -102,6 +102,30 @@ html.dark body {
 	background-color: #4b5563;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+	display: none;
+}
+
+/* Extra small breakpoint for 2-column grid on tiny screens */
+@media (min-width: 360px) {
+	.xs\:flex {
+		display: flex;
+	}
+	.xs\:flex-wrap {
+		flex-wrap: wrap;
+	}
+}
+
+/* Safe area padding for modal bottom sheets on iOS */
+.safe-area-bottom {
+	padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
 /* Shadows (more subtle in dark mode) */
 .dark .shadow,
 .dark .shadow-md,
