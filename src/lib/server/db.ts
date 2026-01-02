@@ -4,38 +4,51 @@ import path from 'path';
 import fs from 'fs';
 
 // Check if we're in build phase - don't initialize DB during build
-const isBuildPhase = process.env.npm_lifecycle_event === 'build' || 
-	process.argv.some(arg => arg.includes('svelte-kit')) ||
-	process.argv.some(arg => arg.includes('vite') && process.argv.some(a => a === 'build'));
+// Only check npm_lifecycle_event which is set during npm run build
+const isBuildPhase = process.env.npm_lifecycle_event === 'build';
 
 // Lazy database initialization - only create when first accessed at runtime
 let _db: DatabaseType | null = null;
+let _initError: Error | null = null;
 
 function getDb(): DatabaseType {
+	if (_initError) throw _initError;
 	if (_db) return _db;
 	
 	if (isBuildPhase) {
-		throw new Error('Database should not be accessed during build phase');
+		_initError = new Error('Database should not be accessed during build phase');
+		throw _initError;
 	}
 
-	const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
-	const dbDir = path.dirname(dbPath);
-	if (!fs.existsSync(dbDir)) {
-		fs.mkdirSync(dbDir, { recursive: true });
+	try {
+		const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
+		console.log('🗄️  Initializing database at:', dbPath);
+		
+		const dbDir = path.dirname(dbPath);
+		if (!fs.existsSync(dbDir)) {
+			console.log('📁 Creating data directory:', dbDir);
+			fs.mkdirSync(dbDir, { recursive: true });
+		}
+
+		_db = new Database(dbPath);
+
+		// Enable WAL mode for better concurrent access
+		_db.pragma('journal_mode = WAL');
+
+		// Initialize schema
+		initializeSchema(_db);
+		
+		// Seed data if needed
+		seedDatabase(_db, dbPath);
+		
+		console.log('✅ Database initialized successfully');
+
+		return _db;
+	} catch (error) {
+		console.error('❌ Database initialization failed:', error);
+		_initError = error as Error;
+		throw error;
 	}
-
-	_db = new Database(dbPath);
-
-	// Enable WAL mode for better concurrent access
-	_db.pragma('journal_mode = WAL');
-
-	// Initialize schema
-	initializeSchema(_db);
-	
-	// Seed data if needed
-	seedDatabase(_db, dbPath);
-
-	return _db;
 }
 
 // Export a proxy that lazily initializes the database

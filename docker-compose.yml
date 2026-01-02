@@ -4,6 +4,7 @@
 services:
   app:
     build: .
+    container_name: resolution-recap-app
     # Expose port internally for Dokploy/Traefik to route to (not mapped to host)
     expose:
       - "3000"
@@ -28,6 +29,10 @@ services:
       start_period: 15s
     networks:
       - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
 
 volumes:
   resolution-recap-data:
