@@ -222,10 +222,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// Challenge teasers
 	const challenges = [
-		{ emoji: '💪', message: 'Weekend challenge: Can we beat last week?', copy: '💪 *Weekend Challenge*\n\nKunnen we dit weekend meer loggen dan vorige week? Let\'s go! 🚀' },
-		{ emoji: '🎯', message: 'Who will log next?', copy: '🎯 *Wie is de volgende?*\n\nWie logt als volgende? Niet te lang wachten! ⏰' },
-		{ emoji: '🔥', message: 'Can anyone start a streak today?', copy: '🔥 *Streak starten?*\n\nVandaag is een perfecte dag om een streak te beginnen! Wie doet mee? 🙋' },
-		{ emoji: '📊', message: 'Midweek motivation needed!', copy: '📊 *Midweek Motivatie*\n\nWe zijn halverwege de week! Niet vergeten te loggen! 💪' },
+		{ emoji: '💪', message: 'Weekend challenge: Can we beat last week?', copyText: '💪 *Weekend Challenge*\n\nKunnen we dit weekend meer loggen dan vorige week? Let\'s go! 🚀' },
+		{ emoji: '🎯', message: 'Who will log next?', copyText: '🎯 *Wie is de volgende?*\n\nWie logt als volgende? Niet te lang wachten! ⏰' },
+		{ emoji: '🔥', message: 'Can anyone start a streak today?', copyText: '🔥 *Streak starten?*\n\nVandaag is een perfecte dag om een streak te beginnen! Wie doet mee? 🙋' },
+		{ emoji: '📊', message: 'Midweek motivation needed!', copyText: '📊 *Midweek Motivatie*\n\nWe zijn halverwege de week! Niet vergeten te loggen! 💪' },
 	];
 
 	// Add 1-2 random challenges
