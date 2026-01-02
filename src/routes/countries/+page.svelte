@@ -6,12 +6,23 @@
 	import { browser } from '$app/environment';
 	import { COUNTRIES, getSortedCountries, getCountry } from '$lib/countries';
 	import { getRank, getMedal } from '$lib/ranking';
+	import { t } from '$lib/stores/locale';
+	import type { Translations } from '$lib/i18n';
 
 	interface Props {
 		data: PageData;
 	}
 
 	let { data }: Props = $props();
+
+	// Subscribe to translations
+	let translations = $state<Translations | null>(null);
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
 
 	let countryLoading = $state(false);
 	let selectedPerson = $state<number | null>(null);
@@ -184,7 +195,7 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="bg-white rounded-2xl shadow-lg p-6">
-		<h1 class="text-2xl font-bold text-gray-800">🌍 Countries Visited</h1>
+		<h1 class="text-2xl font-bold text-gray-800">🌍 {translations?.nav.countries ?? 'Countries Visited'}</h1>
 		<p class="text-gray-500 mt-1">Track your travels and see who visited the most countries!</p>
 	</div>
 

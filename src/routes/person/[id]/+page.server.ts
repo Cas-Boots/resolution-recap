@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons } from '$lib/server/db';
+import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats } from '$lib/server/db';
 import type { StreakData } from '$lib/server/db';
+import { getPlayerStats } from '$lib/leveling';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	if (locals.role !== 'tracker') {
@@ -76,6 +77,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const legacyBadges = getLegacyBadgesForPerson(person.name);
 	const historicalSeasons = getHistoricalSeasons();
 	
+	// Get XP stats for leveling system
+	const xpStats = getPersonXPStats(season.id, personId);
+	const playerStats = getPlayerStats(xpStats);
+	
 	return {
 		authorized: true,
 		season,
@@ -90,6 +95,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		achievements: unlockedAchievements,
 		allAchievements: ACHIEVEMENTS,
 		legacyBadges,
-		historicalSeasons
+		historicalSeasons,
+		playerStats
 	};
 };

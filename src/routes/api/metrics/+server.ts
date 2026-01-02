@@ -17,8 +17,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const { name, emoji } = await request.json();
-	const metric = createMetric(name, emoji);
+	const { name, emoji, name_nl } = await request.json();
+	const metric = createMetric(name, emoji, name_nl);
 	return json(metric, { status: 201 });
 };
 
@@ -27,7 +27,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const { id, name, isActive, emoji } = await request.json();
-	updateMetric(id, name, isActive, emoji);
+	const { id, name, isActive, emoji, name_nl } = await request.json();
+	updateMetric(id, name, isActive, emoji, name_nl);
 	return json({ success: true });
 };

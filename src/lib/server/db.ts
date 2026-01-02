@@ -211,6 +211,21 @@ function initializeSchema(database: DatabaseType) {
 		// Column already exists
 	}
 
+	// Migration: Add name_nl column to metrics table for Dutch translations
+	try {
+		database.exec(`ALTER TABLE metrics ADD COLUMN name_nl TEXT DEFAULT NULL`);
+		// Set default Dutch translations for existing metrics
+		const defaultMetricTranslations: Record<string, string> = {
+			'sporting': 'Gesport', 'cakes eaten': 'Taart gegeten'
+		};
+		const updateMetricNameNl = database.prepare('UPDATE metrics SET name_nl = ? WHERE LOWER(name) = LOWER(?)');
+		for (const [name, nameNl] of Object.entries(defaultMetricTranslations)) {
+			updateMetricNameNl.run(nameNl, name);
+		}
+	} catch {
+		// Column already exists
+	}
+
 	// Migration: Create goals table for tracking targets per person per metric per season
 	try {
 		database.exec(`
@@ -415,6 +430,7 @@ export interface Person {
 export interface Metric {
 	id: number;
 	name: string;
+	name_nl: string | null;
 	emoji: string;
 	is_active: number;
 	created_at: string;
@@ -575,18 +591,18 @@ function getNextUniqueMetricEmoji(): string {
 	return fallback[Math.floor(Math.random() * fallback.length)];
 }
 
-export function createMetric(name: string, emoji?: string): Metric {
+export function createMetric(name: string, emoji?: string, nameNl?: string): Metric {
 	// Auto-assign unique emoji if not provided or if default
 	const finalEmoji = (!emoji || emoji === '📊') ? getNextUniqueMetricEmoji() : emoji;
-	const result = db.prepare('INSERT INTO metrics (name, emoji) VALUES (?, ?)').run(name, finalEmoji);
+	const result = db.prepare('INSERT INTO metrics (name, emoji, name_nl) VALUES (?, ?, ?)').run(name, finalEmoji, nameNl || null);
 	return db.prepare('SELECT * FROM metrics WHERE id = ?').get(result.lastInsertRowid) as Metric;
 }
 
-export function updateMetric(id: number, name: string, isActive: boolean, emoji?: string): void {
+export function updateMetric(id: number, name: string, isActive: boolean, emoji?: string, nameNl?: string): void {
 	if (emoji !== undefined) {
-		db.prepare('UPDATE metrics SET name = ?, is_active = ?, emoji = ? WHERE id = ?').run(name, isActive ? 1 : 0, emoji, id);
+		db.prepare('UPDATE metrics SET name = ?, is_active = ?, emoji = ?, name_nl = ? WHERE id = ?').run(name, isActive ? 1 : 0, emoji, nameNl || null, id);
 	} else {
-		db.prepare('UPDATE metrics SET name = ?, is_active = ? WHERE id = ?').run(name, isActive ? 1 : 0, id);
+		db.prepare('UPDATE metrics SET name = ?, is_active = ?, name_nl = ? WHERE id = ?').run(name, isActive ? 1 : 0, nameNl || null, id);
 	}
 }
 
@@ -2212,6 +2228,8 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		'skating': '⛸️',
 		'skiing': '⛷️',
 		'rowing': '🚣',
+		'climbing': '🧗',
+		'bouldering': '🧗',
 		'fitness': '💪',
 		'other': '🏃'
 	};
@@ -2854,4 +2872,113 @@ export function getPredictions(seasonId: number, currentDayOfYear: number): Pred
 	predictions.forEach((p, i) => p.projected_rank = i + 1);
 	
 	return predictions;
+}
+
+// Get XP stats for a person (for leveling system)
+export function getPersonXPStats(seasonId: number, personId: number): {
+	totalEntries: number;
+	longestStreak: number;
+	currentStreak: number;
+	achievementsUnlocked: { rarity: 'common' | 'rare' | 'epic' | 'legendary' }[];
+	goalsCompleted: number;
+	goalsExceeded: number;
+	uniqueSports: number;
+	weeksWithActivity: number;
+} {
+	// Get total entries
+	const entriesResult = db.prepare(`
+		SELECT COUNT(*) as count
+		FROM entries
+		WHERE season_id = ? AND person_id = ? AND deleted_at IS NULL
+	`).get(seasonId, personId) as { count: number };
+	const totalEntries = entriesResult.count;
+
+	// Get unique dates for streak calculation
+	const dates = db.prepare(`
+		SELECT DISTINCT entry_date
+		FROM entries
+		WHERE season_id = ? AND person_id = ? AND deleted_at IS NULL
+		ORDER BY entry_date
+	`).all(seasonId, personId) as { entry_date: string }[];
+
+	// Calculate streaks
+	let longestStreak = 0;
+	let currentStreak = 0;
+	if (dates.length > 0) {
+		longestStreak = 1;
+		currentStreak = 1;
+		const today = new Date().toISOString().split('T')[0];
+		const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+		
+		for (let i = 1; i < dates.length; i++) {
+			const prev = new Date(dates[i - 1].entry_date);
+			const curr = new Date(dates[i].entry_date);
+			const diff = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+			if (diff === 1) {
+				currentStreak++;
+				longestStreak = Math.max(longestStreak, currentStreak);
+			} else {
+				currentStreak = 1;
+			}
+		}
+		
+		// Check if current streak is still active
+		const lastDate = dates[dates.length - 1].entry_date;
+		if (lastDate !== today && lastDate !== yesterday) {
+			currentStreak = 0;
+		}
+	}
+
+	// Get achievements with their rarity
+	const achievements = getPersonAchievements(seasonId, personId);
+	const achievementsWithRarity = achievements.map(a => {
+		const def = ACHIEVEMENTS.find(def => def.key === a.key);
+		return { rarity: def?.rarity || 'common' as const };
+	});
+
+	// Get goals completion status
+	const goals = db.prepare(`
+		SELECT g.target, 
+			(SELECT COUNT(*) FROM entries e WHERE e.season_id = g.season_id AND e.person_id = g.person_id AND e.metric_id = g.metric_id AND e.deleted_at IS NULL) as current
+		FROM goals g
+		WHERE g.season_id = ? AND g.person_id = ?
+	`).all(seasonId, personId) as { target: number; current: number }[];
+
+	let goalsCompleted = 0;
+	let goalsExceeded = 0;
+	for (const goal of goals) {
+		if (goal.current >= goal.target) {
+			goalsCompleted++;
+			if (goal.current > goal.target * 1.5) {
+				goalsExceeded++;
+			}
+		}
+	}
+
+	// Get unique sports
+	const sports = db.prepare(`
+		SELECT COUNT(DISTINCT tags) as count
+		FROM entries
+		WHERE season_id = ? AND person_id = ? AND deleted_at IS NULL AND tags IS NOT NULL AND tags != ''
+	`).get(seasonId, personId) as { count: number };
+	const uniqueSports = sports.count;
+
+	// Get weeks with activity
+	const weeks = db.prepare(`
+		SELECT COUNT(DISTINCT strftime('%Y-%W', entry_date)) as count
+		FROM entries
+		WHERE season_id = ? AND person_id = ? AND deleted_at IS NULL
+	`).get(seasonId, personId) as { count: number };
+	const weeksWithActivity = weeks.count;
+
+	return {
+		totalEntries,
+		longestStreak,
+		currentStreak,
+		achievementsUnlocked: achievementsWithRarity,
+		goalsCompleted,
+		goalsExceeded,
+		uniqueSports,
+		weeksWithActivity
+	};
 }

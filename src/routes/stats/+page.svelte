@@ -5,6 +5,33 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { getRank, getRankDisplay } from '$lib/ranking';
+	import { locale, t } from '$lib/stores/locale';
+	import type { Translations, Locale } from '$lib/i18n';
+	import { translateMetric } from '$lib/i18n';
+
+	// Subscribe to translations and locale
+	let translations = $state<Translations | null>(null);
+	let currentLocale = $state<Locale>('en');
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
+	$effect(() => {
+		const unsubscribe = locale.subscribe(value => {
+			currentLocale = value;
+		});
+		return unsubscribe;
+	});
+
+	// Helper to translate metric names - accepts metric object or just name string
+	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
+		if (typeof metric === 'string') {
+			return translateMetric(metric, currentLocale);
+		}
+		return translateMetric(metric.name, currentLocale, metric.name_nl);
+	}
 
 	interface Props {
 		data: PageData;
@@ -365,7 +392,7 @@
 		ctx.fillStyle = 'white';
 		for (const metric of data.metrics || []) {
 			const count = person.metrics[metric.name] || 0;
-			ctx.fillText(`${metric.emoji} ${metric.name}: ${count}`, 300, y);
+			ctx.fillText(`${metric.emoji} ${getTranslatedMetricName(metric)}: ${count}`, 300, y);
 			y += 50;
 		}
 		
@@ -375,6 +402,48 @@
 		ctx.fillText('Resolution Recap ' + data.season.year, 300, 380);
 		
 		return canvas.toDataURL('image/png');
+	}
+
+	// Generate shareable leaderboard text for WhatsApp
+	function generateLeaderboardText(metricName?: string): string {
+		if (!data.season) return '';
+		
+		const lines: string[] = [];
+		lines.push(`📊 *Snapvrienden ${data.season.year} - ${metricName || 'Leaderboard'}*`);
+		lines.push('');
+		
+		if (metricName) {
+			// Single metric leaderboard
+			const ranking = statsGrid
+				.map(row => ({ ...row, count: row.metrics[metricName] || 0 }))
+				.filter(row => row.count > 0)
+				.sort((a, b) => b.count - a.count);
+			
+			const medals = ['🥇', '🥈', '🥉'];
+			ranking.forEach((row, i) => {
+				const medal = medals[i] || `${i + 1}.`;
+				lines.push(`${medal} ${row.personEmoji} ${row.personName}: ${row.count}`);
+			});
+		} else {
+			// Overall leaderboard
+			const ranking = [...statsGrid].sort((a, b) => b.total - a.total);
+			const medals = ['🥇', '🥈', '🥉'];
+			ranking.forEach((row, i) => {
+				const medal = medals[i] || `${i + 1}.`;
+				lines.push(`${medal} ${row.personEmoji} ${row.personName}: ${row.total} total`);
+			});
+		}
+		
+		lines.push('');
+		lines.push(`📅 Day ${getDaysPassed()} of ${data.season.year}`);
+		
+		return lines.join('\n');
+	}
+
+	function shareToWhatsApp(metricName?: string) {
+		const text = generateLeaderboardText(metricName);
+		const encodedText = encodeURIComponent(text);
+		window.open(`https://wa.me/?text=${encodedText}`, '_blank');
 	}
 
 	async function shareStats(personId: number) {
@@ -660,7 +729,7 @@ return { days: allDays, maxCount, weeks };
 	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 transition-colors duration-200">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">📈 Stats</h1>
+				<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">📈 {translations?.nav.stats ?? 'Stats'}</h1>
 				{#if data.season}
 					<p class="text-gray-500 dark:text-gray-400">{data.season.name}</p>
 				{/if}
@@ -702,43 +771,43 @@ return { days: allDays, maxCount, weeks };
 				onclick={() => switchTab('overview')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'overview' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🏆 Overview
+				🏆 {translations?.stats.overview ?? 'Overview'}
 			</button>
 			<button
 				onclick={() => switchTab('goals')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'goals' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🎯 Goals
+				🎯 {translations?.stats.goals ?? 'Goals'}
 			</button>
 			<button
 				onclick={() => switchTab('monthly')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'monthly' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				📅 Monthly
+				📅 {translations?.stats.monthly ?? 'Monthly'}
 			</button>
 			<button
 				onclick={() => switchTab('streaks')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'streaks' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🔥 Streaks
+				🔥 {translations?.stats.streaks ?? 'Streaks'}
 			</button>
 			<button
 				onclick={() => switchTab('calendar')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				📆 Calendar
+				📆 {translations?.stats.calendar ?? 'Calendar'}
 			</button>
 			<button
 				onclick={() => switchTab('insights')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'insights' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				💡 Insights
+				💡 {translations?.stats.insights ?? 'Insights'}
 			</button>
 			<button
 				onclick={() => switchTab('compare')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				⚔️ Compare
+				⚔️ {translations?.stats.compare ?? 'Compare'}
 			</button>
 		</div>
 
@@ -791,7 +860,7 @@ return { days: allDays, maxCount, weeks };
 						>
 							<div class="text-2xl mb-1">{metric.emoji}</div>
 							<div class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{metricTotals[metric.name] || 0}</div>
-							<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">Total {metric.name}</div>
+							<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">Total {getTranslatedMetricName(metric)}</div>
 						</div>
 					{/each}
 				</div>
@@ -820,7 +889,7 @@ return { days: allDays, maxCount, weeks };
 						<div class="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span class="text-xl">{metric.emoji}</span>
-								<h3 class="font-semibold text-indigo-800 dark:text-indigo-300">{metric.name} Leaderboard</h3>
+								<h3 class="font-semibold text-indigo-800 dark:text-indigo-300">{getTranslatedMetricName(metric)} Leaderboard</h3>
 							</div>
 							<div class="flex items-center gap-3">
 								<!-- Projection blend indicator -->
@@ -832,13 +901,24 @@ return { days: allDays, maxCount, weeks };
 									</div>
 								{/if}
 								{#if metricRanking.length > 0}
-									<button
-										onclick={() => shareStats(metricRanking[0].personId)}
-										class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline print:hidden"
-										title="Share stats"
-									>
-										📤 Share
-									</button>
+									<div class="flex items-center gap-2 print:hidden">
+										<button
+											onclick={() => shareToWhatsApp(metric.name)}
+											class="flex items-center gap-1 text-sm bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors"
+											title="Share to WhatsApp"
+										>
+											<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+												<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+											</svg>
+										</button>
+										<button
+											onclick={() => shareStats(metricRanking[0].personId)}
+											class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+											title="Share as image"
+										>
+											📤
+										</button>
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -2094,9 +2174,9 @@ return { days: allDays, maxCount, weeks };
 				<div class="flex items-center gap-4">
 					<div class="text-4xl">📜</div>
 					<div>
-						<h3 class="text-lg font-bold text-gray-800 dark:text-white">Previous Seasons</h3>
+						<h3 class="text-lg font-bold text-gray-800 dark:text-white">{translations?.stats?.previousSeasons || 'Previous Seasons'}</h3>
 						<p class="text-sm text-gray-600 dark:text-gray-400">
-							See how we did in 2024 (🎂 Cakes) and 2025 (🏃 Sporting)
+							{translations?.stats?.seeHowWeDid || 'See how we did in 2024 (🎂 Cakes) and 2025 (🏃 Sporting)'}
 						</p>
 					</div>
 				</div>

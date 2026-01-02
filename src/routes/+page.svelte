@@ -10,26 +10,57 @@
 		isOnline, 
 		syncPendingEntries 
 	} from '$lib/stores/offlineQueue';
+	import { locale, t } from '$lib/stores/locale';
+	import type { Translations, Locale } from '$lib/i18n';
+	import { translateMetric } from '$lib/i18n';
 
-	// Predefined sport activity types
-	const SPORT_ACTIVITIES = [
-		{ value: 'running', label: '🏃 Running' },
-		{ value: 'cycling', label: '🚴 Cycling' },
-		{ value: 'swimming', label: '🏊 Swimming' },
-		{ value: 'gym', label: '🏋️ Gym' },
-		{ value: 'yoga', label: '🧘 Yoga' },
-		{ value: 'hiking', label: '🥾 Hiking' },
-		{ value: 'tennis', label: '🎾 Tennis' },
-		{ value: 'football', label: '⚽ Football' },
-		{ value: 'basketball', label: '🏀 Basketball' },
-		{ value: 'climbing', label: '🧗 Climbing' },
-		{ value: 'skiing', label: '⛷️ Skiing' },
-		{ value: 'skating', label: '⛸️ Skating' },
-		{ value: 'boxing', label: '🥊 Boxing' },
-		{ value: 'martial-arts', label: '🥋 Martial Arts' },
-		{ value: 'dance', label: '💃 Dance' },
-		{ value: 'other', label: '🏅 Other' }
-	];
+	// Subscribe to translations and locale
+	let translations = $state<Translations | null>(null);
+	let currentLocale = $state<Locale>('en');
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
+	$effect(() => {
+		const unsubscribe = locale.subscribe(value => {
+			currentLocale = value;
+		});
+		return unsubscribe;
+	});
+
+	// Helper to translate metric names - accepts metric object or just name string
+	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
+		if (typeof metric === 'string') {
+			return translateMetric(metric, currentLocale);
+		}
+		return translateMetric(metric.name, currentLocale, metric.name_nl);
+	}
+
+	// Predefined sport activity types - reactive for translations
+	const SPORT_ACTIVITIES = $derived([
+		{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
+		{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
+		{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
+		{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
+		{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
+		{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
+		{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
+		{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
+		{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
+		{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
+		{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
+		{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
+		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
+		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
+		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
+		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
+		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
+		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
+		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
+	]);
 
 	interface Props {
 		data: PageData;
@@ -898,7 +929,7 @@
 	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div>
-				<h1 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-1">📊 Dashboard</h1>
+				<h1 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-1">📊 {translations?.dashboard.title ?? 'Dashboard'}</h1>
 				{#if data.season}
 					<p class="text-sm sm:text-base text-gray-500">{data.season.name}</p>
 				{/if}
@@ -921,7 +952,7 @@
 								class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 {viewMode === 'leaderboard' && selectedLeaderboardMetric === metric.name ? 'bg-white dark:bg-gray-700 shadow-lg text-amber-600 dark:text-amber-400 scale-[1.02]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'}"
 							>
 								<span class="text-base sm:text-lg">{getMetricEmoji(metric.name)}</span>
-								<span>{metric.name}</span>
+								<span>{getTranslatedMetricName(metric)}</span>
 							</button>
 						{/each}
 					</div>
@@ -933,10 +964,10 @@
 						bind:value={selectedPeriod}
 						class="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 bg-white dark:bg-gray-800 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 transition-all"
 					>
-						<option value="all">📅  All Time</option>
-						<option value="month">🗓️  This Month</option>
-						<option value="week">📆  This Week</option>
-						<option value="today">☀️  Today</option>
+						<option value="all">📅  {translations?.dashboard.allTime ?? 'All Time'}</option>
+						<option value="month">🗓️  {translations?.dashboard.thisMonth ?? 'This Month'}</option>
+						<option value="week">📆  {translations?.dashboard.thisWeek ?? 'This Week'}</option>
+						<option value="today">☀️  {translations?.dashboard.today ?? 'Today'}</option>
 					</select>
 					<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -958,7 +989,7 @@
 
 	{#if !data.season}
 		<div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 text-yellow-800 dark:text-yellow-200">
-			No active season. Ask an admin to set one up.
+			{translations?.dashboard.noActiveSeason ?? 'No active season. Ask an admin to set one up.'}
 		</div>
 	{:else}
 		<!-- TODAY'S ACTIVITY SUMMARY -->
@@ -966,10 +997,10 @@
 			<div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-4 sm:p-5 text-white">
 				<div class="flex items-center justify-between mb-3 gap-2">
 					<h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
-						☀️ Today's Activity
+						☀️ {translations?.dashboard.todaysActivity ?? "Today's Activity"}
 					</h2>
 					<span class="bg-white/20 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap">
-						{todaySummary.totalCount} {todaySummary.totalCount === 1 ? 'entry' : 'entries'}
+						{todaySummary.totalCount} {todaySummary.totalCount === 1 ? (translations?.dashboard.entry ?? 'entry') : (translations?.dashboard.entries ?? 'entries')}
 					</span>
 				</div>
 				<div class="flex flex-wrap gap-2 sm:gap-3">
@@ -992,8 +1023,8 @@
 				<div class="flex items-center gap-2">
 					<span class="text-2xl">☀️</span>
 					<div>
-						<h2 class="font-bold">No activity yet today</h2>
-						<p class="text-sm opacity-80">Use Quick Add below to get started!</p>
+						<h2 class="font-bold">{translations?.dashboard.noActivityYet ?? 'No activity yet today'}</h2>
+						<p class="text-sm opacity-80">{translations?.dashboard.getStarted ?? 'Use Quick Add below to get started!'}</p>
 					</div>
 				</div>
 			</div>
@@ -1002,15 +1033,15 @@
 		<!-- QUICK ACTIONS - Most prominent section -->
 		<div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
 			<h2 class="text-base sm:text-lg font-bold mb-3 sm:mb-4 flex flex-wrap items-center gap-2">
-				⚡ Quick Add
-				<span class="text-xs sm:text-sm font-normal opacity-80">— tap to log today</span>
+				⚡ {translations?.dashboard.quickAdd ?? 'Quick Add'}
+				<span class="text-xs sm:text-sm font-normal opacity-80">— {translations?.dashboard.tapToLog ?? 'tap to log today'}</span>
 			</h2>
 			
 			<div class="space-y-3 sm:space-y-4">
 				{#each sortedMetrics as metric}
 					<div>
 						<div class="text-xs sm:text-sm opacity-80 mb-2 flex items-center gap-1">
-							{getMetricEmoji(metric.name)} {metric.name}
+							{getMetricEmoji(metric.name)} {getTranslatedMetricName(metric)}
 						</div>
 						<div class="grid grid-cols-2 xs:flex xs:flex-wrap gap-2">
 							{#each data.people || [] as person}
@@ -1028,7 +1059,7 @@
 			</div>
 			
 			<p class="text-[10px] sm:text-xs opacity-60 mt-3 sm:mt-4">
-				Need to adjust the date or add notes? Use the <a href="{base}/add" class="underline">full form</a>.
+				{translations?.dashboard.needAdjust ?? 'Need to adjust the date or add notes? Use the'} <a href="{base}/add" class="underline">{translations?.dashboard.fullForm ?? 'full form'}</a>.
 			</p>
 		</div>
 
@@ -1037,26 +1068,26 @@
 			<!-- Enhanced Empty State -->
 			<div class="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 sm:p-8 text-center">
 				<div class="text-5xl sm:text-6xl mb-3 sm:mb-4">🎯</div>
-				<h2 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-2">Welcome to Resolution Recap!</h2>
+				<h2 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-2">{translations?.dashboard.welcome ?? 'Welcome to Resolution Recap!'}</h2>
 				<p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-md mx-auto">
-					Track your daily habits and goals together. Start by logging your first activity using the Quick Add buttons above.
+					{translations?.dashboard.welcomeSubtitle ?? 'Track your progress and compete with friends'}
 				</p>
 				
 				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-left max-w-2xl mx-auto">
 					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
 						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">1️⃣</div>
-						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Tap Quick Add</h3>
-						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Select a person and activity type to log</p>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">{translations?.dashboard.tapQuickAdd ?? 'Tap Quick Add'}</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{translations?.dashboard.selectActivity ?? 'Select a person and activity type to log'}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
 						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">2️⃣</div>
-						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Build Streaks</h3>
-						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Log daily to build your 🔥 streak</p>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">{translations?.dashboard.buildStreaks ?? 'Build Streaks'}</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{translations?.dashboard.logDaily ?? 'Log daily to build your 🔥 streak'}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm">
 						<div class="text-xl sm:text-2xl mb-1 sm:mb-2">3️⃣</div>
-						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Reach Goals</h3>
-						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Watch your progress grow over time</p>
+						<h3 class="font-semibold text-sm sm:text-base text-gray-800 dark:text-white">{translations?.dashboard.reachGoals ?? 'Reach Goals'}</h3>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{translations?.dashboard.watchProgress ?? 'Watch your progress grow over time'}</p>
 					</div>
 				</div>
 				
@@ -1149,7 +1180,7 @@
 									<div class="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform {hasOptimistic ? 'animate-pulse' : ''} {isAnimating ? 'counter-animate' : ''}">
 										{optimisticCount}
 									</div>
-									<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 truncate">{metric}</div>
+									<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 truncate">{getTranslatedMetricName(metric)}</div>
 									
 									<!-- Streak indicator -->
 									{#if streak && streak.current > 0}
@@ -1197,7 +1228,7 @@
 						<!-- Expandable recent history -->
 						{#if isExpanded}
 							<div class="mt-4 pt-4 border-t dark:border-gray-700">
-								<h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">📜 Recent Activity</h4>
+								<h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">📜 {translations?.dashboard.recentActivity ?? 'Recent Activity'}</h4>
 								{#if personHistory.get(row.personId)?.length}
 									<div class="space-y-2 max-h-40 overflow-y-auto">
 										{#each personHistory.get(row.personId) || [] as entry}
@@ -1212,7 +1243,7 @@
 										{/each}
 									</div>
 								{:else}
-									<p class="text-sm text-gray-400">No recent entries</p>
+									<p class="text-sm text-gray-400">{translations?.dashboard.noRecentEntries ?? 'No recent entries'}</p>
 								{/if}
 							</div>
 						{/if}
@@ -1225,10 +1256,10 @@
 				<table class="w-full">
 					<thead class="bg-gray-50 dark:bg-gray-700">
 						<tr>
-							<th class="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Person</th>
+							<th class="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{translations?.dashboard.person ?? 'Person'}</th>
 							{#each metricNames as metric}
 								<th class="px-6 py-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-200">
-									<div>{metric}</div>
+									<div>{getTranslatedMetricName(metric)}</div>
 									<div class="text-[10px] font-normal text-gray-400">7-day trend</div>
 								</th>
 							{/each}

@@ -2,12 +2,23 @@
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { t } from '$lib/stores/locale';
+	import type { Translations } from '$lib/i18n';
 
 	interface Props {
 		data: PageData;
 	}
 
 	let { data }: Props = $props();
+
+	// Subscribe to translations
+	let translations = $state<Translations | null>(null);
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
 
 	// People management
 	let newPersonName = $state('');
@@ -20,9 +31,11 @@
 	// Metrics management  
 	let newMetricName = $state('');
 	let newMetricEmoji = $state('📊');
+	let newMetricNameNl = $state('');
 	let editingMetricId = $state<number | null>(null);
 	let editingMetricName = $state('');
 	let editingMetricEmoji = $state('');
+	let editingMetricNameNl = $state('');
 	let metricLoading = $state(false);
 
 	// Add person
@@ -65,23 +78,24 @@
 		await fetch(`${base}/api/metrics`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: newMetricName.trim(), emoji: newMetricEmoji || '📊' })
+			body: JSON.stringify({ name: newMetricName.trim(), emoji: newMetricEmoji || '📊', name_nl: newMetricNameNl.trim() || null })
 		});
 		
 		newMetricName = '';
 		newMetricEmoji = '📊';
+		newMetricNameNl = '';
 		metricLoading = false;
 		await invalidateAll();
 	}
 
 	// Update metric
-	async function updateMetric(id: number, name: string, isActive: boolean, emoji?: string) {
+	async function updateMetric(id: number, name: string, isActive: boolean, emoji?: string, nameNl?: string) {
 		metricLoading = true;
 		
 		await fetch(`${base}/api/metrics`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, name, isActive, emoji })
+			body: JSON.stringify({ id, name, isActive, emoji, name_nl: nameNl || null })
 		});
 		
 		editingMetricId = null;
@@ -226,7 +240,7 @@
 
 <div class="space-y-6">
 	<div class="bg-white rounded-2xl shadow-lg p-6">
-		<h1 class="text-2xl font-bold text-gray-800">⚙️ Settings</h1>
+		<h1 class="text-2xl font-bold text-gray-800">⚙️ {translations?.nav.settings ?? 'Settings'}</h1>
 		<p class="text-gray-500 mt-1">Manage people and metrics</p>
 	</div>
 
@@ -323,28 +337,37 @@
 		
 		<div class="p-4 space-y-3">
 			<!-- Add new metric -->
-			<form onsubmit={(e) => { e.preventDefault(); addMetric(); }} class="flex gap-2">
-				<input
-					type="text"
-					bind:value={newMetricEmoji}
-					placeholder="📊"
-					class="w-14 px-2 py-2 border rounded-lg text-center text-xl focus:border-purple-500 focus:outline-none"
-					maxlength="2"
-				/>
-				<input
-					type="text"
-					bind:value={newMetricName}
-					placeholder="New metric name..."
-					class="flex-1 px-3 py-2 border rounded-lg focus:border-purple-500 focus:outline-none"
-					disabled={metricLoading}
-				/>
-				<button
-					type="submit"
-					disabled={metricLoading || !newMetricName.trim()}
-					class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
-				>
-					Add
-				</button>
+			<form onsubmit={(e) => { e.preventDefault(); addMetric(); }} class="space-y-2">
+				<div class="flex gap-2">
+					<input
+						type="text"
+						bind:value={newMetricEmoji}
+						placeholder="📊"
+						class="w-14 px-2 py-2 border rounded-lg text-center text-xl focus:border-purple-500 focus:outline-none"
+						maxlength="2"
+					/>
+					<input
+						type="text"
+						bind:value={newMetricName}
+						placeholder="Metric name (English)..."
+						class="flex-1 px-3 py-2 border rounded-lg focus:border-purple-500 focus:outline-none"
+						disabled={metricLoading}
+					/>
+					<input
+						type="text"
+						bind:value={newMetricNameNl}
+						placeholder="🇳🇱 Dutch name..."
+						class="flex-1 px-3 py-2 border rounded-lg focus:border-purple-500 focus:outline-none"
+						disabled={metricLoading}
+					/>
+					<button
+						type="submit"
+						disabled={metricLoading || !newMetricName.trim()}
+						class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+					>
+						Add
+					</button>
+				</div>
 			</form>
 
 			<div class="divide-y">
@@ -360,10 +383,17 @@
 							<input
 								type="text"
 								bind:value={editingMetricName}
+								placeholder="English name"
+								class="flex-1 px-3 py-2 border rounded-lg focus:border-purple-500 focus:outline-none"
+							/>
+							<input
+								type="text"
+								bind:value={editingMetricNameNl}
+								placeholder="🇳🇱 Dutch name"
 								class="flex-1 px-3 py-2 border rounded-lg focus:border-purple-500 focus:outline-none"
 							/>
 							<button
-								onclick={() => updateMetric(metric.id, editingMetricName, !!metric.is_active, editingMetricEmoji)}
+								onclick={() => updateMetric(metric.id, editingMetricName, !!metric.is_active, editingMetricEmoji, editingMetricNameNl)}
 								class="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
 							>
 								Save
@@ -376,17 +406,20 @@
 							</button>
 						{:else}
 							<span class="text-xl">{metric.emoji || '📊'}</span>
-							<span class="flex-1 {metric.is_active ? 'text-gray-800' : 'text-gray-400 line-through'}">
-								{metric.name}
-							</span>
+							<div class="flex-1 {metric.is_active ? 'text-gray-800' : 'text-gray-400 line-through'}">
+								<span>{metric.name}</span>
+								{#if metric.name_nl}
+									<span class="text-sm text-gray-500 ml-2">🇳🇱 {metric.name_nl}</span>
+								{/if}
+							</div>
 							<button
-								onclick={() => { editingMetricId = metric.id; editingMetricName = metric.name; editingMetricEmoji = metric.emoji || '📊'; }}
+								onclick={() => { editingMetricId = metric.id; editingMetricName = metric.name; editingMetricEmoji = metric.emoji || '📊'; editingMetricNameNl = metric.name_nl || ''; }}
 								class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
 							>
 								Edit
 							</button>
 							<button
-								onclick={() => updateMetric(metric.id, metric.name, !metric.is_active, metric.emoji)}
+								onclick={() => updateMetric(metric.id, metric.name, !metric.is_active, metric.emoji, metric.name_nl ?? undefined)}
 								class="px-3 py-1 {metric.is_active ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'} rounded-lg text-sm"
 							>
 								{metric.is_active ? 'Deactivate' : 'Activate'}
@@ -411,7 +444,12 @@
 			</div>
 			
 			<div class="p-4">
-				{#each (data.metrics || []).filter((m: { is_active: number }) => m.is_active) as metric}
+				{#each (data.metrics || []).filter((m: { is_active: number }) => m.is_active).sort((a: { name: string }, b: { name: string }) => {
+					// Sporting first
+					if (a.name.toLowerCase() === 'sporting') return -1;
+					if (b.name.toLowerCase() === 'sporting') return 1;
+					return a.name.localeCompare(b.name);
+				}) as metric}
 					<div class="mb-6 last:mb-0">
 						<div class="flex items-center gap-2 mb-3">
 							<span class="text-xl">{metric.emoji}</span>

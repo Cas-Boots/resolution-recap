@@ -2,6 +2,8 @@
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
 	import { browser } from '$app/environment';
+	import { locale, t } from '$lib/stores/locale';
+	import type { Translations } from '$lib/i18n';
 
 	interface Props {
 		role: 'tracker' | 'admin';
@@ -13,6 +15,24 @@
 	let menuOpen = $state(false);
 	let darkMode = $state(false);
 	let moreSheetOpen = $state(false);
+	let currentLocale = $state<'en' | 'nl'>('en');
+	let currentTranslations = $state<Translations | null>(null);
+
+	// Subscribe to locale store
+	$effect(() => {
+		const unsubscribe = locale.subscribe(value => {
+			currentLocale = value;
+		});
+		return unsubscribe;
+	});
+
+	// Subscribe to translations store
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			currentTranslations = value;
+		});
+		return unsubscribe;
+	});
 
 	// Initialize dark mode from localStorage on mount
 	$effect(() => {
@@ -36,6 +56,10 @@
 		}
 	}
 
+	function toggleLocale() {
+		locale.toggle();
+	}
+
 	function applyDarkMode(isDark: boolean) {
 		if (isDark) {
 			document.documentElement.classList.add('dark');
@@ -47,21 +71,22 @@
 	}
 
 	// Primary links shown in bottom tab bar (mobile) / main nav (desktop)
-	const primaryLinks = [
-		{ href: `${base}/`, label: 'Home', icon: '📊' },
-		{ href: `${base}/add`, label: 'Add', icon: '➕' },
-		{ href: `${base}/stats`, label: 'Stats', icon: '📈' },
-		{ href: `${base}/history`, label: 'History', icon: '📜' }
-	];
+	// Use $derived to make them reactive to translation changes
+	const primaryLinks = $derived([
+		{ href: `${base}/`, label: currentTranslations?.nav.home ?? 'Home', icon: '📊' },
+		{ href: `${base}/add`, label: currentTranslations?.nav.add ?? 'Add', icon: '➕' },
+		{ href: `${base}/stats`, label: currentTranslations?.nav.stats ?? 'Stats', icon: '📈' },
+		{ href: `${base}/history`, label: currentTranslations?.nav.history ?? 'History', icon: '📜' }
+	]);
 
 	// Secondary links in "More" sheet
-	const secondaryLinks = [
-		{ href: `${base}/countries`, label: 'Countries', icon: '🌍' },
+	const secondaryLinks = $derived([
+		{ href: `${base}/countries`, label: currentTranslations?.nav.countries ?? 'Countries', icon: '🌍' },
 		{ href: `${base}/teasers`, label: 'Teasers', icon: '📱' },
 		{ href: `${base}/reveal`, label: 'Reveal', icon: '🎬' },
 		{ href: `${base}/export`, label: 'Export', icon: '📄' },
-		{ href: `${base}/settings`, label: 'Settings', icon: '⚙️' }
-	];
+		{ href: `${base}/settings`, label: currentTranslations?.nav.settings ?? 'Settings', icon: '⚙️' }
+	]);
 
 	const adminLinks = [
 		{ href: `${base}/admin`, label: 'Seasons', icon: '📅' },
@@ -148,6 +173,16 @@
 
 			<!-- Right side actions -->
 			<div class="flex items-center gap-1">
+				<!-- Language toggle -->
+				<button
+					onclick={toggleLocale}
+					class="relative p-2.5 rounded-xl text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 group"
+					aria-label={currentLocale === 'en' ? 'Switch to Dutch' : 'Switch to English'}
+					title={currentLocale === 'en' ? 'Nederlands' : 'English'}
+				>
+					{currentLocale === 'en' ? '🇬🇧' : '🇳🇱'}
+				</button>
+				
 				<!-- Dark mode toggle -->
 				<button
 					onclick={toggleDarkMode}
@@ -250,6 +285,14 @@
 		
 		<!-- Bottom actions -->
 		<div class="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 mb-2">
+			<button
+				onclick={toggleLocale}
+				class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+			>
+				<span class="text-lg">{currentLocale === 'en' ? '🇬🇧' : '🇳🇱'}</span>
+				<span class="text-sm font-medium">{currentLocale === 'en' ? 'EN' : 'NL'}</span>
+			</button>
+			
 			<button
 				onclick={toggleDarkMode}
 				class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300"

@@ -2,6 +2,8 @@
 	import type { PageData } from './$types';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { t } from '$lib/stores/locale';
+	import type { Translations } from '$lib/i18n';
 
 	interface Props {
 		data: PageData;
@@ -9,28 +11,38 @@
 
 	let { data }: Props = $props();
 
-	// Predefined sport activity types
-	const SPORT_ACTIVITIES = [
-		{ value: 'running', label: '🏃 Running' },
-		{ value: 'cycling', label: '🚴 Cycling' },
-		{ value: 'swimming', label: '🏊 Swimming' },
-		{ value: 'gym', label: '🏋️ Gym' },
-		{ value: 'yoga', label: '🧘 Yoga' },
-		{ value: 'hiking', label: '🥾 Hiking' },
-		{ value: 'tennis', label: '🎾 Tennis' },
-		{ value: 'padel', label: '🎾 Padel' },
-		{ value: 'football', label: '⚽ Football' },
-		{ value: 'basketball', label: '🏀 Basketball' },
-		{ value: 'hockey', label: '🏑 Hockey' },
-		{ value: 'volleyball', label: '🏐 Volleyball' },
-		{ value: 'climbing', label: '🧗 Climbing' },
-		{ value: 'skiing', label: '⛷️ Skiing' },
-		{ value: 'skating', label: '⛸️ Skating' },
-		{ value: 'boxing', label: '🥊 Boxing' },
-		{ value: 'martial-arts', label: '🥋 Martial Arts' },
-		{ value: 'dance', label: '💃 Dance' },
-		{ value: 'other', label: '🏅 Other' }
-	];
+	// Subscribe to translations
+	let translations = $state<Translations | null>(null);
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
+
+	// Predefined sport activity types - reactive for translations
+	const SPORT_ACTIVITIES = $derived([
+		{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
+		{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
+		{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
+		{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
+		{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
+		{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
+		{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
+		{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
+		{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
+		{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
+		{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
+		{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
+		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
+		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
+		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
+		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
+		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
+		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
+		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
+	]);
 
 	// Emoji mapping for metrics
 	const METRIC_EMOJIS: Record<string, string> = {
@@ -251,7 +263,7 @@
 
 <div class="space-y-6">
 	<div class="bg-white dark:bg-gray-800/90 dark:backdrop-blur-sm rounded-2xl shadow-lg dark:shadow-indigo-500/10 p-6 dark:border dark:border-gray-700/50">
-		<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">➕ Add Entry</h1>
+		<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">➕ {translations?.nav.add ?? 'Add Entry'}</h1>
 		{#if data.season}
 			<p class="text-gray-500 dark:text-gray-400">{data.season.name}</p>
 		{/if}

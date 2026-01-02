@@ -2,12 +2,23 @@
 	import type { PageData } from './$types';
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/stores/locale';
+	import type { Translations } from '$lib/i18n';
 
 	interface Props {
 		data: PageData;
 	}
 
 	let { data }: Props = $props();
+
+	// Subscribe to translations
+	let translations = $state<Translations | null>(null);
+	$effect(() => {
+		const unsubscribe = t.subscribe(value => {
+			translations = value;
+		});
+		return unsubscribe;
+	});
 	
 	let selectedPerson = $state(data.selectedPersonId);
 
