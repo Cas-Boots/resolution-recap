@@ -4,9 +4,9 @@
 services:
   app:
     build: .
-    # Don't map to host port - Dokploy/Traefik handles reverse proxy
-    expose:
-      - "3000"
+    # Expose port for Dokploy/Traefik to route to
+    ports:
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - HOST=0.0.0.0
@@ -18,10 +18,6 @@ services:
       - BACKUP_TOKEN=${BACKUP_TOKEN}
     volumes:
       # CRITICAL: Mount a persistent volume for the database
-      # In Dokploy, go to "Mounts" and add:
-      #   Type: Volume
-      #   Source: resolution-recap-data (or any name)
-      #   Target: /app/data
       - resolution-recap-data:/app/data
     restart: unless-stopped
     healthcheck:
@@ -30,39 +26,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-    networks:
-      - dokploy-network
-    labels:
-      # Traefik labels for reverse proxy routing
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      # HTTP Router - redirect to HTTPS
-      - "traefik.http.routers.resolution-recap.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.resolution-recap.entrypoints=web"
-      - "traefik.http.routers.resolution-recap.middlewares=redirect-to-https@docker"
-      # HTTPS Router
-      - "traefik.http.routers.resolution-recap-secure.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.resolution-recap-secure.entrypoints=websecure"
-      - "traefik.http.routers.resolution-recap-secure.tls=true"
-      - "traefik.http.routers.resolution-recap-secure.tls.certresolver=letsencrypt"
-      # Service configuration
-      - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
-      # Redirect middleware
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 128M
 
 volumes:
   resolution-recap-data:
-    # Named volume - Docker will create this automatically
-    # Note: Be careful with 'docker-compose down -v' as it will delete this volume!
     name: resolution-recap-data
-
-networks:
-  dokploy-network:
-    external: true
