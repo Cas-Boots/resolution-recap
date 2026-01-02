@@ -280,8 +280,19 @@ export function setSetting(key: string, value: string): void {
 // Seed data if tables are empty
 function seedDatabase() {
 	const seasonCount = db.prepare('SELECT COUNT(*) as count FROM seasons').get() as { count: number };
+	const entriesCount = db.prepare('SELECT COUNT(*) as count FROM entries').get() as { count: number };
+	
+	// Warn if database appears to be freshly created in production
+	const isProduction = process.env.NODE_ENV === 'production';
+	if (isProduction && seasonCount.count === 0 && entriesCount.count === 0) {
+		console.warn('⚠️  WARNING: Database is empty in production!');
+		console.warn('⚠️  This might indicate that the volume was not mounted correctly.');
+		console.warn('⚠️  Check that /app/data is mounted to a persistent volume.');
+		console.warn('⚠️  DB_PATH:', dbPath);
+	}
 	
 	if (seasonCount.count === 0) {
+		console.log('📦 Seeding database with initial data...');
 		// Insert 2026 season as active
 		db.prepare(`
 			INSERT INTO seasons (year, name, is_active) VALUES (2026, 'Season 2026', 1)

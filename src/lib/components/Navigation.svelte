@@ -95,6 +95,23 @@
 				🎯 Recap
 			</a>
 
+			<!-- Mobile: dark mode toggle + menu button -->
+			<div class="md:hidden flex items-center gap-1">
+				<button
+					onclick={toggleDarkMode}
+					class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+					aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+				>
+					<span class="text-lg">{darkMode ? '☀️' : '🌙'}</span>
+				</button>
+				<button
+					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+					onclick={() => (menuOpen = !menuOpen)}
+				>
+					<span class="text-xl">{menuOpen ? '✕' : '☰'}</span>
+				</button>
+			</div>
+
 			<!-- Desktop nav -->
 			<div class="hidden md:flex items-center gap-1">
 				{#each mainLinks as link}
@@ -143,12 +160,6 @@
 								{/each}
 								<hr class="my-2 border-gray-200 dark:border-gray-700" />
 								<button
-									onclick={() => { toggleDarkMode(); moreMenuOpen = false; }}
-									class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-								>
-									{darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-								</button>
-								<button
 									onclick={() => { handleLogout(); moreMenuOpen = false; }}
 									class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
 								>
@@ -166,15 +177,19 @@
 						🚪
 					</button>
 				{/if}
+				
+				<!-- Dark mode toggle button (always visible) -->
+				<button
+					onclick={toggleDarkMode}
+					class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+					aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+					title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+				>
+					<span class="text-lg transition-transform duration-300 inline-block {darkMode ? 'rotate-0' : 'rotate-180'}">
+						{darkMode ? '☀️' : '🌙'}
+					</span>
+				</button>
 			</div>
-
-			<!-- Mobile menu button -->
-			<button
-				class="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-				onclick={() => (menuOpen = !menuOpen)}
-			>
-				<span class="text-xl">{menuOpen ? '✕' : '☰'}</span>
-			</button>
 		</div>
 	</div>
 
@@ -193,12 +208,6 @@
 				</a>
 			{/each}
 			<hr class="my-2 mx-4 border-gray-200 dark:border-gray-700" />
-			<button
-				onclick={toggleDarkMode}
-				class="block w-full text-left px-4 py-3 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-			>
-				{darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-			</button>
 			<button
 				onclick={handleLogout}
 				class="block w-full text-left px-4 py-3 text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"

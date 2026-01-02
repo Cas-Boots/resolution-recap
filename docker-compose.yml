@@ -1,0 +1,32 @@
+# Docker Compose for Resolution Recap
+# This ensures proper data persistence across rebuilds
+
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3000
+      - DB_PATH=/app/data/resolution-recap.db
+      - TRACKER_PIN=${TRACKER_PIN:-1234}
+      - ADMIN_PIN=${ADMIN_PIN:-admin}
+    volumes:
+      # CRITICAL: This volume persists the database across rebuilds!
+      - resolution-recap-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Named volume for database persistence
+volumes:
+  resolution-recap-data:
+    driver: local

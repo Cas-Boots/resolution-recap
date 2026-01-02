@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build output (we build in container)
+build/
+
+# Data directory - NEVER include in image!
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Backups
+backups/
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation
+*.md
+!README.md
