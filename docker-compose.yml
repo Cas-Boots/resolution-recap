@@ -5,6 +5,8 @@
 services:
   app:
     build: .
+    expose:
+      - "3000"
     environment:
       - TZ=Europe/Amsterdam
       - NODE_ENV=production
