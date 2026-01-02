@@ -8,7 +8,9 @@ RUN npm ci
 
 # Copy source and build (data/ is excluded via .dockerignore)
 COPY . .
-RUN npm run build
+
+# Generate SvelteKit files first, then build
+RUN npx svelte-kit sync && npm run build
 
 # Production stage
 FROM node:22-alpine AS production
