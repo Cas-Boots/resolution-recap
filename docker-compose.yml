@@ -58,9 +58,9 @@ services:
 
 volumes:
   resolution-recap-data:
-    # External volume - must be created beforehand, won't be deleted by docker-compose down -v
-    # Create with: docker volume create resolution-recap-data
-    external: true
+    # Named volume - Docker will create this automatically
+    # Note: Be careful with 'docker-compose down -v' as it will delete this volume!
+    name: resolution-recap-data
 
 networks:
   dokploy-network:
