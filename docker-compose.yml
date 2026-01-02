@@ -7,8 +7,6 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    expose:
-      - "3000"
     environment:
       - TZ=Europe/Amsterdam
       - NODE_ENV=production
