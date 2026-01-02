@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { BACKUP_TOKEN } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { importAllData, type ImportData } from '$lib/server/db';
 
 export const POST: RequestHandler = async ({ request, url, locals }) => {
 	// Only allow access with admin role or backup token
 	const token = url.searchParams.get('token');
 	
-	if (locals.role !== 'admin' && token !== BACKUP_TOKEN) {
+	if (locals.role !== 'admin' && token !== env.BACKUP_TOKEN) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 

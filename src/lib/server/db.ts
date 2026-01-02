@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { TRACKER_PIN, ADMIN_PIN } from '$env/static/private';
 import path from 'path';
 import fs from 'fs';
 
@@ -328,12 +327,12 @@ function seedDatabase() {
 
 	// Initialize PINs from environment if not set in database
 	const trackerPin = getSetting('tracker_pin');
-	if (!trackerPin && TRACKER_PIN) {
-		setSetting('tracker_pin', TRACKER_PIN);
+	if (!trackerPin && process.env.TRACKER_PIN) {
+		setSetting('tracker_pin', process.env.TRACKER_PIN);
 	}
 	const adminPin = getSetting('admin_pin');
-	if (!adminPin && ADMIN_PIN) {
-		setSetting('admin_pin', ADMIN_PIN);
+	if (!adminPin && process.env.ADMIN_PIN) {
+		setSetting('admin_pin', process.env.ADMIN_PIN);
 	}
 }
 
