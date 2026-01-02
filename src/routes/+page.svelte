@@ -88,6 +88,18 @@
 		return pendingAction?.metricName?.toLowerCase() === 'sporting';
 	});
 
+	// Sort metrics with Sporting first, then by name
+	const sortedMetrics = $derived.by(() => {
+		const metrics = data.metrics || [];
+		return [...metrics].sort((a, b) => {
+			// Sporting first
+			if (a.name.toLowerCase() === 'sporting') return -1;
+			if (b.name.toLowerCase() === 'sporting') return 1;
+			// Then alphabetical
+			return a.name.localeCompare(b.name);
+		});
+	});
+
 	// Subscribe to offline stores
 	onMount(() => {
 		initOfflineSupport();
@@ -995,7 +1007,7 @@
 			</h2>
 			
 			<div class="space-y-3 sm:space-y-4">
-				{#each data.metrics || [] as metric}
+				{#each sortedMetrics as metric}
 					<div>
 						<div class="text-xs sm:text-sm opacity-80 mb-2 flex items-center gap-1">
 							{getMetricEmoji(metric.name)} {metric.name}
@@ -1374,5 +1386,24 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Previous Seasons Mini Teaser -->
+		<a 
+			href="{base}/history"
+			class="block bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 hover:shadow-lg transition-all group"
+		>
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-3">
+					<span class="text-2xl">📜</span>
+					<div>
+						<div class="font-semibold text-gray-800 dark:text-white text-sm">Previous Seasons</div>
+						<div class="text-xs text-gray-500 dark:text-gray-400">
+							🏃 2025: Cas won with 147 · 🎂 2024: Joris won with 33
+						</div>
+					</div>
+				</div>
+				<span class="text-gray-400 group-hover:text-amber-500 group-hover:translate-x-1 transition-all">→</span>
+			</div>
+		</a>
 	{/if}
 </div>

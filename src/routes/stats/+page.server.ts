@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getSeasonStatsInRange, getActiveMetrics, getActivePeople, getGoalsForSeason, getMonthlyStats, getDailyStats, getStreaks, getDayOfWeekStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportProgression, getSportTotals, getSportProgressionByPerson, getSportStatsByPerson } from '$lib/server/db';
+import { getActiveSeason, getSeasonStatsInRange, getActiveMetrics, getActivePeople, getGoalsForSeason, getMonthlyStats, getDailyStats, getStreaks, getDayOfWeekStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportProgression, getSportTotals, getSportProgressionByPerson, getSportStatsByPerson, get2025SportingBaselines } from '$lib/server/db';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.role !== 'tracker') {
@@ -40,6 +40,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const sportTotals = getSportTotals(season.id);
 	const sportProgressionByPerson = getSportProgressionByPerson(season.id);
 	const sportStatsByPerson = getSportStatsByPerson(season.id);
+	
+	// Get 2025 baselines for projections - convert Map to object for serialization
+	const baselines2025 = Object.fromEntries(get2025SportingBaselines());
 
 	return {
 		authorized: true,
@@ -62,6 +65,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		sportProgression,
 		sportTotals,
 		sportProgressionByPerson,
-		sportStatsByPerson
+		sportStatsByPerson,
+		baselines2025
 	};
 };

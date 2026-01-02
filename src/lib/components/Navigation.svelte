@@ -12,6 +12,7 @@
 
 	let menuOpen = $state(false);
 	let darkMode = $state(false);
+	let moreSheetOpen = $state(false);
 
 	// Initialize dark mode from localStorage on mount
 	$effect(() => {
@@ -45,14 +46,15 @@
 		}
 	}
 
-	// Primary links shown in main nav
+	// Primary links shown in bottom tab bar (mobile) / main nav (desktop)
 	const primaryLinks = [
 		{ href: `${base}/`, label: 'Home', icon: '📊' },
 		{ href: `${base}/add`, label: 'Add', icon: '➕' },
-		{ href: `${base}/stats`, label: 'Stats', icon: '📈' }
+		{ href: `${base}/stats`, label: 'Stats', icon: '📈' },
+		{ href: `${base}/history`, label: 'History', icon: '📜' }
 	];
 
-	// Secondary links in "More" menu
+	// Secondary links in "More" sheet
 	const secondaryLinks = [
 		{ href: `${base}/countries`, label: 'Countries', icon: '🌍' },
 		{ href: `${base}/teasers`, label: 'Teasers', icon: '📱' },
@@ -88,132 +90,202 @@
 	}
 </script>
 
-<nav class="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-40">
-	<div class="max-w-4xl mx-auto px-4">
-		<div class="flex justify-between items-center h-14">
-			<a href={mainLinks[0].href} class="font-bold text-indigo-600 dark:text-indigo-400 text-lg">
-				🎯 Recap
+<!-- Desktop: Top navbar -->
+<nav class="hidden md:block bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-40">
+	<div class="max-w-6xl mx-auto px-6">
+		<div class="flex items-center h-16 gap-6">
+			<!-- Logo -->
+			<a href={mainLinks[0].href} class="flex items-center gap-2 group shrink-0">
+				<span class="text-2xl group-hover:scale-110 transition-transform">🎯</span>
+				<span class="font-bold text-xl bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+					Recap
+				</span>
 			</a>
 
-			<!-- Mobile: dark mode toggle + menu button -->
-			<div class="md:hidden flex items-center gap-1">
-				<button
-					onclick={toggleDarkMode}
-					class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
-					aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-				>
-					<span class="text-lg">{darkMode ? '☀️' : '🌙'}</span>
-				</button>
-				<button
-					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-					onclick={() => (menuOpen = !menuOpen)}
-				>
-					<span class="text-xl">{menuOpen ? '✕' : '☰'}</span>
-				</button>
-			</div>
-
-			<!-- Desktop nav -->
-			<div class="hidden md:flex items-center gap-1">
+			<!-- Primary nav - pill container -->
+			<div class="flex items-center bg-gray-100/80 dark:bg-gray-700/50 rounded-full p-1">
 				{#each mainLinks as link}
 					<a
 						href={link.href}
-						class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {isActive(link.href)
-							? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-							: 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+						class="relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 {isActive(link.href)
+							? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
+							: 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}"
 					>
-						{link.icon} {link.label}
+						<span class="relative z-10 flex items-center gap-1.5">
+							<span class="text-base">{link.icon}</span>
+							<span>{link.label}</span>
+						</span>
 					</a>
 				{/each}
-				
-				<!-- More dropdown (tracker only) -->
-				{#if moreLinks.length > 0}
-					<div class="relative">
-						<button
-							onclick={() => moreMenuOpen = !moreMenuOpen}
-							class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {isMoreActive()
-								? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-								: 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+			</div>
+
+			<!-- Spacer -->
+			<div class="flex-1"></div>
+
+			<!-- Secondary nav - icon buttons -->
+			{#if moreLinks.length > 0}
+				<div class="flex items-center gap-1">
+					{#each moreLinks as link}
+						<a
+							href={link.href}
+							class="relative p-2.5 rounded-xl text-xl transition-all duration-200 group {isActive(link.href)
+								? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300'
+								: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'}"
+							title={link.label}
 						>
-							⋯ More
-						</button>
-						
-						{#if moreMenuOpen}
-							<!-- Backdrop -->
-							<button 
-								class="fixed inset-0 z-10" 
-								onclick={() => moreMenuOpen = false}
-								aria-label="Close menu"
-							></button>
-							
-							<!-- Dropdown -->
-							<div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 py-2 z-20">
-								{#each moreLinks as link}
-									<a
-										href={link.href}
-										onclick={() => moreMenuOpen = false}
-										class="block px-4 py-2 text-sm transition-colors {isActive(link.href)
-											? 'bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-											: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
-									>
-										{link.icon} {link.label}
-									</a>
-								{/each}
-								<hr class="my-2 border-gray-200 dark:border-gray-700" />
-								<button
-									onclick={() => { handleLogout(); moreMenuOpen = false; }}
-									class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-								>
-									🚪 Logout
-								</button>
-							</div>
-						{/if}
-					</div>
-				{:else}
-					<!-- Admin: simple logout -->
-					<button
-						onclick={handleLogout}
-						class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-					>
-						🚪
-					</button>
-				{/if}
+							{link.icon}
+							<!-- Tooltip -->
+							<span class="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+								{link.label}
+							</span>
+						</a>
+					{/each}
+				</div>
 				
-				<!-- Dark mode toggle button (always visible) -->
+				<!-- Divider -->
+				<div class="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+			{/if}
+
+			<!-- Right side actions -->
+			<div class="flex items-center gap-1">
+				<!-- Dark mode toggle -->
 				<button
 					onclick={toggleDarkMode}
-					class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+					class="relative p-2.5 rounded-xl text-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 group"
 					aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-					title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+					title={darkMode ? 'Light mode' : 'Dark mode'}
 				>
-					<span class="text-lg transition-transform duration-300 inline-block {darkMode ? 'rotate-0' : 'rotate-180'}">
+					<span class="block transition-transform duration-500 {darkMode ? 'rotate-0' : 'rotate-[360deg]'}">
 						{darkMode ? '☀️' : '🌙'}
+					</span>
+				</button>
+				
+				<!-- Logout -->
+				<button
+					onclick={handleLogout}
+					class="relative p-2.5 rounded-xl text-xl text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 group"
+					title="Logout"
+				>
+					🚪
+					<!-- Tooltip -->
+					<span class="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+						Logout
 					</span>
 				</button>
 			</div>
 		</div>
 	</div>
+</nav>
 
-	<!-- Mobile nav -->
-	{#if menuOpen}
-		<div class="md:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800 pb-3">
-			{#each allLinks as link}
-				<a
-					href={link.href}
-					onclick={() => (menuOpen = false)}
-					class="block px-4 py-3 font-medium transition-colors {isActive(link.href)
-						? 'bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-						: 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}"
-				>
-					{link.icon} {link.label}
-				</a>
-			{/each}
-			<hr class="my-2 mx-4 border-gray-200 dark:border-gray-700" />
+<!-- Mobile: Bottom tab bar -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 safe-area-bottom">
+	<div class="flex justify-around items-center h-16 px-2">
+		{#each mainLinks as link}
+			<a
+				href={link.href}
+				class="flex flex-col items-center justify-center flex-1 py-2 transition-colors {isActive(link.href)
+					? 'text-indigo-600 dark:text-indigo-400'
+					: 'text-gray-500 dark:text-gray-400'}"
+			>
+				<span class="text-xl mb-0.5">{link.icon}</span>
+				<span class="text-[10px] font-medium">{link.label}</span>
+			</a>
+		{/each}
+		
+		<!-- More button -->
+		{#if moreLinks.length > 0}
+			<button
+				onclick={() => moreSheetOpen = true}
+				class="flex flex-col items-center justify-center flex-1 py-2 transition-colors {isMoreActive()
+					? 'text-indigo-600 dark:text-indigo-400'
+					: 'text-gray-500 dark:text-gray-400'}"
+			>
+				<span class="text-xl mb-0.5">⋯</span>
+				<span class="text-[10px] font-medium">More</span>
+			</button>
+		{:else}
+			<!-- Admin logout -->
 			<button
 				onclick={handleLogout}
-				class="block w-full text-left px-4 py-3 text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+				class="flex flex-col items-center justify-center flex-1 py-2 text-gray-500 dark:text-gray-400"
 			>
-				🚪 Logout
+				<span class="text-xl mb-0.5">🚪</span>
+				<span class="text-[10px] font-medium">Logout</span>
+			</button>
+		{/if}
+	</div>
+</nav>
+
+<!-- Mobile: Bottom sheet for "More" menu -->
+{#if moreSheetOpen}
+	<!-- Backdrop -->
+	<button
+		class="md:hidden fixed inset-0 bg-black/50 z-50 transition-opacity"
+		onclick={() => moreSheetOpen = false}
+		aria-label="Close menu"
+	></button>
+	
+	<!-- Sheet -->
+	<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 rounded-t-2xl z-50 shadow-2xl animate-slide-up safe-area-bottom">
+		<!-- Handle bar -->
+		<div class="flex justify-center pt-3 pb-2">
+			<div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+		</div>
+		
+		<!-- Menu items grid -->
+		<div class="grid grid-cols-3 gap-2 p-4 pb-2">
+			{#each moreLinks as link}
+				<a
+					href={link.href}
+					onclick={() => moreSheetOpen = false}
+					class="flex flex-col items-center justify-center py-4 rounded-xl transition-colors {isActive(link.href)
+						? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
+						: 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
+				>
+					<span class="text-2xl mb-1">{link.icon}</span>
+					<span class="text-xs font-medium">{link.label}</span>
+				</a>
+			{/each}
+		</div>
+		
+		<!-- Bottom actions -->
+		<div class="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 mb-2">
+			<button
+				onclick={toggleDarkMode}
+				class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+			>
+				<span class="text-lg">{darkMode ? '☀️' : '🌙'}</span>
+				<span class="text-sm font-medium">{darkMode ? 'Light' : 'Dark'}</span>
+			</button>
+			
+			<button
+				onclick={() => { handleLogout(); moreSheetOpen = false; }}
+				class="flex items-center gap-2 px-4 py-2 rounded-xl text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30"
+			>
+				<span class="text-lg">🚪</span>
+				<span class="text-sm font-medium">Logout</span>
 			</button>
 		</div>
-	{/if}
-</nav>
+	</div>
+{/if}
+
+<style>
+	/* Safe area for devices with home indicator */
+	.safe-area-bottom {
+		padding-bottom: env(safe-area-inset-bottom, 0);
+	}
+	
+	/* Slide up animation for bottom sheet */
+	@keyframes slide-up {
+		from {
+			transform: translateY(100%);
+		}
+		to {
+			transform: translateY(0);
+		}
+	}
+	
+	.animate-slide-up {
+		animation: slide-up 0.3s ease-out;
+	}
+</style>

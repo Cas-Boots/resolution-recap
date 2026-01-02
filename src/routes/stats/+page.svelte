@@ -175,12 +175,46 @@
 		return Math.max(1, Math.floor((now.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24)));
 	}
 
-	function getProjectedTotal(current: number): number {
+	// Normalize names to match baseline keys (Bastiaan -> Bas)
+	function normalizeName(name: string): string {
+		const normalizations: Record<string, string> = {
+			'Bastiaan': 'Bas',
+			'Bas': 'Bas'
+		};
+		return normalizations[name] || name;
+	}
+
+	// Blended projection using 2025 baseline as prior
+	// Early in year: weighted toward 2025 baseline
+	// As year progresses: shifts toward current pace
+	function getProjectedTotal(current: number, personName?: string): number {
 		if (!data.season) return current;
 		const daysPassed = getDaysPassed();
-		if (daysPassed < 7) return 0; // Need at least a week of data for projection
-		const pace = current / daysPassed;
-		return Math.round(pace * 365);
+		
+		// Get 2025 baseline for this person (normalize name for lookup)
+		const normalizedName = personName ? normalizeName(personName) : '';
+		const baseline2025 = normalizedName ? (data.baselines2025?.[normalizedName]?.final_2025 || 0) : 0;
+		
+		// Current pace projection
+		const currentPace = daysPassed > 0 ? (current / daysPassed) * 365 : 0;
+		
+		// Calculate blend weight based on days passed
+		// At day 0: 100% baseline, at day 365: 100% current pace
+		// Use a curve that transitions more quickly after ~30 days of data
+		// weight = daysPassed / (daysPassed + k) where k controls transition speed
+		const k = 30; // After 30 days, weight is ~50% current data
+		const currentWeight = daysPassed / (daysPassed + k);
+		const baselineWeight = 1 - currentWeight;
+		
+		// If we have a baseline, blend the projections
+		if (baseline2025 > 0) {
+			const blended = (baselineWeight * baseline2025) + (currentWeight * currentPace);
+			return Math.round(blended);
+		}
+		
+		// No baseline available - use current pace only (but require more data)
+		if (daysPassed < 14) return 0; // Need 2 weeks without baseline
+		return Math.round(currentPace);
 	}
 
 	function getWeeklyPace(current: number): number {
@@ -188,6 +222,87 @@
 		const daysPassed = getDaysPassed();
 		if (daysPassed < 1) return 0;
 		return Math.round((current / daysPassed) * 7 * 10) / 10; // One decimal
+	}
+
+	// Blended weekly pace using 2025 baseline as prior
+	function getBlendedWeeklyPace(current: number, personName?: string): number {
+		if (!data.season) return 0;
+		const daysPassed = getDaysPassed();
+		
+		// Get 2025 baseline for this person (normalize name for lookup)
+		const normalizedName = personName ? normalizeName(personName) : '';
+		const baseline2025 = normalizedName ? (data.baselines2025?.[normalizedName]?.final_2025 || 0) : 0;
+		
+		// 2025 weekly pace (assuming 52 weeks)
+		const baseline2025WeeklyPace = baseline2025 / 52;
+		
+		// Current weekly pace
+		const currentWeeklyPace = daysPassed > 0 ? (current / daysPassed) * 7 : 0;
+		
+		// Blend using same formula as projections
+		const k = 30;
+		const currentWeight = daysPassed / (daysPassed + k);
+		const baselineWeight = 1 - currentWeight;
+		
+		if (baseline2025 > 0) {
+			const blended = (baselineWeight * baseline2025WeeklyPace) + (currentWeight * currentWeeklyPace);
+			return Math.round(blended * 10) / 10; // One decimal
+		}
+		
+		// No baseline - use current (but require some data)
+		if (daysPassed < 7) return 0;
+		return Math.round(currentWeeklyPace * 10) / 10;
+	}
+
+	// Blended daily pace using 2025 baseline as prior
+	function getBlendedDailyPace(current: number, personName?: string): number {
+		if (!data.season) return 0;
+		const daysPassed = getDaysPassed();
+		
+		// Get 2025 baseline for this person (normalize name for lookup)
+		const normalizedName = personName ? normalizeName(personName) : '';
+		const baseline2025 = normalizedName ? (data.baselines2025?.[normalizedName]?.final_2025 || 0) : 0;
+		
+		// 2025 daily pace
+		const baseline2025DailyPace = baseline2025 / 365;
+		
+		// Current daily pace
+		const currentDailyPace = daysPassed > 0 ? current / daysPassed : 0;
+		
+		// Blend using same formula
+		const k = 30;
+		const currentWeight = daysPassed / (daysPassed + k);
+		const baselineWeight = 1 - currentWeight;
+		
+		if (baseline2025 > 0) {
+			const blended = (baselineWeight * baseline2025DailyPace) + (currentWeight * currentDailyPace);
+			return Math.round(blended * 100) / 100; // Two decimals
+		}
+		
+		// No baseline - use current
+		if (daysPassed < 7) return 0;
+		return Math.round(currentDailyPace * 100) / 100;
+	}
+
+	// Get the blend percentage (how much current data vs baseline)
+	function getBlendInfo(): { currentWeight: number; baselineWeight: number; description: string } {
+		const daysPassed = getDaysPassed();
+		const k = 30;
+		const currentWeight = Math.round((daysPassed / (daysPassed + k)) * 100);
+		const baselineWeight = 100 - currentWeight;
+		
+		let description = '';
+		if (currentWeight < 25) {
+			description = 'Mostly based on 2025';
+		} else if (currentWeight < 50) {
+			description = 'Blending 2025 + current';
+		} else if (currentWeight < 75) {
+			description = 'Mostly current pace';
+		} else {
+			description = 'Based on current pace';
+		}
+		
+		return { currentWeight, baselineWeight, description };
 	}
 
 	function updateDateRange() {
@@ -331,26 +446,58 @@
 		if (!data.cumulativeStats || !data.season) return { labels: [], datasets: [] };
 		
 		const people = data.people || [];
-		const byPerson = new Map<number, { name: string; emoji: string; data: { date: string; value: number }[] }>();
+		const year = data.season.year;
+		const startOfYear = `${year}-01-01`;
 		
-		for (const entry of data.cumulativeStats) {
-			if (!byPerson.has(entry.person_id)) {
-				byPerson.set(entry.person_id, { name: entry.person_name, emoji: entry.person_emoji, data: [] });
-			}
-			byPerson.get(entry.person_id)!.data.push({ date: entry.date, value: entry.cumulative });
+		// First, collect raw cumulative data by person
+		const rawByPerson = new Map<number, { name: string; emoji: string; data: Map<string, number> }>();
+		
+		// Initialize all people
+		for (const person of people) {
+			rawByPerson.set(person.id, { 
+				name: person.name, 
+				emoji: person.emoji || '👤', 
+				data: new Map<string, number>() 
+			});
 		}
 		
-		// Get all unique dates
-		const allDates = [...new Set(data.cumulativeStats.map(e => e.date))].sort();
+		for (const entry of data.cumulativeStats) {
+			if (!rawByPerson.has(entry.person_id)) {
+				rawByPerson.set(entry.person_id, { 
+					name: entry.person_name, 
+					emoji: entry.person_emoji, 
+					data: new Map<string, number>() 
+				});
+			}
+			rawByPerson.get(entry.person_id)!.data.set(entry.date, entry.cumulative);
+		}
 		
-		return {
-			labels: allDates,
-			datasets: Array.from(byPerson.entries()).map(([id, d]) => ({
+		// Get all unique dates, ensuring Jan 1 is included
+		const allDatesSet = new Set(data.cumulativeStats.map(e => e.date));
+		allDatesSet.add(startOfYear);
+		const allDates = [...allDatesSet].sort();
+		
+		// Build datasets with data point for each date (carry forward cumulative values)
+		const datasets = Array.from(rawByPerson.entries()).map(([id, d]) => {
+			let lastValue = 0;
+			const filledData = allDates.map(date => {
+				if (d.data.has(date)) {
+					lastValue = d.data.get(date)!;
+				}
+				return { date, value: lastValue };
+			});
+			
+			return {
 				personId: id,
 				name: d.name,
 				emoji: d.emoji,
-				data: d.data
-			}))
+				data: filledData
+			};
+		});
+		
+		return {
+			labels: allDates,
+			datasets
 		};
 	});
 
@@ -657,8 +804,9 @@ return { days: allDays, maxCount, weeks };
 						.sort((a, b) => b.count - a.count)}
 					{@const projectedRanking = statsGrid
 						.map(row => ({ 
-							personId: row.personId, 
-							projected: getProjectedTotal(row.metrics[metric.name] || 0)
+							personId: row.personId,
+							personName: row.personName,
+							projected: getProjectedTotal(row.metrics[metric.name] || 0, row.personName)
 						}))
 						.filter(row => row.projected > 0)
 						.sort((a, b) => b.projected - a.projected)}
@@ -666,6 +814,7 @@ return { days: allDays, maxCount, weeks };
 					{@const trend = trendData[metric.name] || []}
 					{@const maxVal = Math.max(...trend.map(t => t.total), 1)}
 					{@const daysPassed = getDaysPassed()}
+					{@const blendInfo = getBlendInfo()}
 					
 					<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-colors duration-200">
 						<div class="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between">
@@ -673,15 +822,25 @@ return { days: allDays, maxCount, weeks };
 								<span class="text-xl">{metric.emoji}</span>
 								<h3 class="font-semibold text-indigo-800 dark:text-indigo-300">{metric.name} Leaderboard</h3>
 							</div>
-							{#if metricRanking.length > 0}
-								<button
-									onclick={() => shareStats(metricRanking[0].personId)}
-									class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline print:hidden"
-									title="Share stats"
-								>
-									📤 Share
-								</button>
-							{/if}
+							<div class="flex items-center gap-3">
+								<!-- Projection blend indicator -->
+								{#if daysPassed > 0}
+									<div class="hidden sm:flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400" title="Projection uses a blend of 2025 baseline and current pace">
+										<span class="opacity-60">📊</span>
+										<span>{blendInfo.description}</span>
+										<span class="text-[10px] opacity-50">({blendInfo.currentWeight}% pace)</span>
+									</div>
+								{/if}
+								{#if metricRanking.length > 0}
+									<button
+										onclick={() => shareStats(metricRanking[0].personId)}
+										class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline print:hidden"
+										title="Share stats"
+									>
+										📤 Share
+									</button>
+								{/if}
+							</div>
 						</div>
 						
 						{#if metricRanking.length === 0}
@@ -693,9 +852,11 @@ return { days: allDays, maxCount, weeks };
 								{#each metricRanking as row, i}
 									{@const rank = getRank(i, metricRanking, r => r.count)}
 									{@const weeklyPace = getWeeklyPace(row.count)}
-									{@const projected = getProjectedTotal(row.count)}
+									{@const projected = getProjectedTotal(row.count, row.personName)}
 									{@const expectedRank = getProjectedRank(row.personId)}
 									{@const rankChange = rank - expectedRank}
+									{@const baseline2025 = data.baselines2025?.[normalizeName(row.personName)]?.final_2025 || 0}
+									{@const vsBaseline = baseline2025 > 0 ? projected - baseline2025 : null}
 									<a 
 										href="{base}/person/{row.personId}"
 										class="flex items-center px-4 py-3 gap-3 {rank === 1 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -707,8 +868,13 @@ return { days: allDays, maxCount, weeks };
 										<div class="flex-1 min-w-0">
 											<div class="font-medium text-gray-800 dark:text-white">{row.personName}</div>
 											{#if daysPassed >= 7}
-												<div class="text-xs text-gray-500 dark:text-gray-400">
-													📈 {weeklyPace}/week → {projected}
+												<div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+													<span>📈 {weeklyPace}/week → {projected}</span>
+													{#if vsBaseline !== null}
+														<span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium {vsBaseline > 0 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : vsBaseline < 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}">
+															vs '25: {vsBaseline > 0 ? '+' : ''}{vsBaseline}
+														</span>
+													{/if}
 												</div>
 											{/if}
 										</div>
@@ -814,11 +980,14 @@ return { days: allDays, maxCount, weeks };
 									<div class="grid gap-4">
 										{#each data.sportStatsByPerson as person, i}
 											{@const color = personColors[i % personColors.length]}
-											{@const projected = Math.round((person.total / daysPassed) * totalDaysInYear)}
-											{@const weeklyPace = ((person.total / daysPassed) * 7).toFixed(1)}
-											{@const dailyPace = (person.total / daysPassed).toFixed(2)}
-											{@const progressWidth = Math.min(100, (person.total / maxProjected) * 100)}
-											{@const projectedWidth = Math.min(100, (projected / maxProjected) * 100)}
+											{@const projected = getProjectedTotal(person.total, person.person_name)}
+											{@const baseline2025 = data.baselines2025?.[normalizeName(person.person_name)]?.final_2025 || 0}
+											{@const weeklyPace = getBlendedWeeklyPace(person.total, person.person_name)}
+											{@const dailyPace = getBlendedDailyPace(person.total, person.person_name)}
+											{@const displayMax = Math.max(projected, baseline2025, maxCurrent * 2, 10)}
+											{@const progressWidth = Math.min(100, (person.total / displayMax) * 100)}
+											{@const projectedWidth = Math.min(100, (projected / displayMax) * 100)}
+											{@const baseline2025Width = baseline2025 > 0 ? Math.min(100, (baseline2025 / displayMax) * 100) : 0}
 											
 											<div class="bg-white dark:bg-gray-700/50 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-600">
 												<!-- Header -->
@@ -860,6 +1029,14 @@ return { days: allDays, maxCount, weeks };
 																<span class="text-white text-xs font-bold drop-shadow">{person.total}</span>
 															{/if}
 														</div>
+														<!-- 2025 baseline marker -->
+														{#if baseline2025 > 0}
+															<div 
+																class="absolute top-0 bottom-0 w-0.5 bg-amber-500 dark:bg-amber-400"
+																style="left: {baseline2025Width}%"
+																title="2025: {baseline2025}"
+															></div>
+														{/if}
 														<!-- Projected marker -->
 														<div 
 															class="absolute top-0 bottom-0 w-0.5 bg-gray-600 dark:bg-gray-300"
@@ -874,6 +1051,9 @@ return { days: allDays, maxCount, weeks };
 													</div>
 													<div class="flex justify-between text-xs text-gray-400 mt-1">
 														<span>Current: {person.total}</span>
+														{#if baseline2025 > 0}
+															<span class="text-amber-600 dark:text-amber-400">'25: {baseline2025}</span>
+														{/if}
 														<span>Projected: {projected}</span>
 													</div>
 												</div>
@@ -890,7 +1070,15 @@ return { days: allDays, maxCount, weeks };
 													</div>
 													<div class="text-center">
 														<div class="text-lg font-bold" style="color: {color}">{projected}</div>
-														<div class="text-xs text-gray-500 dark:text-gray-400">year-end</div>
+														<div class="text-xs text-gray-500 dark:text-gray-400">
+															year-end
+															{#if baseline2025 > 0}
+																{@const diff = projected - baseline2025}
+																<span class="ml-1 {diff >= 0 ? 'text-green-500' : 'text-red-500'}">
+																	({diff >= 0 ? '+' : ''}{diff})
+																</span>
+															{/if}
+														</div>
 													</div>
 												</div>
 											</div>
@@ -974,7 +1162,7 @@ return { days: allDays, maxCount, weeks };
 											{@const expectedCount = Math.round((expectedProgress / 100) * goal.target)}
 											{@const isAhead = current >= expectedCount}
 											{@const behind = expectedCount - current}
-											{@const projected = getProjectedTotal(current)}
+											{@const projected = getProjectedTotal(current, goal.person_name)}
 											{@const weeklyPace = getWeeklyPace(current)}
 											{@const daysPassed = getDaysPassed()}
 											{@const willHitGoal = projected >= goal.target}
@@ -1899,6 +2087,46 @@ return { days: allDays, maxCount, weeks };
 				{/if}
 			</div>
 		{/if}
+
+		<!-- Previous Seasons Teaser -->
+		<div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl shadow-lg p-6 border border-amber-200 dark:border-amber-800 print:hidden">
+			<div class="flex items-center justify-between flex-wrap gap-4">
+				<div class="flex items-center gap-4">
+					<div class="text-4xl">📜</div>
+					<div>
+						<h3 class="text-lg font-bold text-gray-800 dark:text-white">Previous Seasons</h3>
+						<p class="text-sm text-gray-600 dark:text-gray-400">
+							See how we did in 2024 (🎂 Cakes) and 2025 (🏃 Sporting)
+						</p>
+					</div>
+				</div>
+				<a 
+					href="{base}/history"
+					class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors shadow-md hover:shadow-lg"
+				>
+					<span>View History</span>
+					<span>→</span>
+				</a>
+			</div>
+			
+			<!-- Quick preview of past winners -->
+			<div class="mt-4 pt-4 border-t border-amber-200 dark:border-amber-700 grid grid-cols-2 gap-4">
+				<div class="flex items-center gap-3">
+					<span class="text-2xl">🏃</span>
+					<div>
+						<div class="text-xs text-gray-500 dark:text-gray-400">2025 Winner</div>
+						<div class="font-semibold text-gray-800 dark:text-white">🥇 Cas (147)</div>
+					</div>
+				</div>
+				<div class="flex items-center gap-3">
+					<span class="text-2xl">🎂</span>
+					<div>
+						<div class="text-xs text-gray-500 dark:text-gray-400">2024 Winner</div>
+						<div class="font-semibold text-gray-800 dark:text-white">🥇 Joris (33)</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>
 

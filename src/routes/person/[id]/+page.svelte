@@ -116,13 +116,44 @@
 		<div class="flex items-center gap-4">
 			<a href="{base}/stats" class="text-gray-400 hover:text-gray-600">←</a>
 			<div class="text-4xl">{data.person?.emoji}</div>
-			<div>
+			<div class="flex-1">
 				<h1 class="text-2xl font-bold text-gray-800">{data.person?.name}</h1>
 				{#if data.season}
 					<p class="text-gray-500">{data.season.name} Stats</p>
 				{/if}
 			</div>
+			<!-- Legacy Badges -->
+			{#if data.legacyBadges && data.legacyBadges.length > 0}
+				<div class="flex gap-1">
+					{#each data.legacyBadges as badge}
+						<div class="relative group">
+							<div class="text-2xl cursor-help">{badge.badge_emoji}</div>
+							<div class="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+								{badge.year}: {badge.rank === 1 ? 'Champion' : badge.rank === 2 ? 'Runner-up' : 'Third Place'}
+								<div class="text-gray-400">{badge.metric} {badge.metric_emoji}</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
+		
+		<!-- Legacy History Summary -->
+		{#if data.legacyBadges && data.legacyBadges.length > 0}
+			<div class="mt-4 pt-4 border-t border-gray-100">
+				<div class="flex items-center gap-2 text-sm text-gray-500">
+					<span>🏛️ Legacy:</span>
+					{#each data.legacyBadges as badge, i}
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r {badge.rank === 1 ? 'from-yellow-100 to-amber-100' : badge.rank === 2 ? 'from-gray-100 to-slate-100' : 'from-orange-50 to-amber-50'} rounded-full text-xs">
+							{badge.badge_emoji} {badge.year} {badge.metric}
+						</span>
+					{/each}
+					<a href="{base}/history" class="text-indigo-600 hover:text-indigo-700 ml-auto text-xs">
+						View History →
+					</a>
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	{#if data.error}

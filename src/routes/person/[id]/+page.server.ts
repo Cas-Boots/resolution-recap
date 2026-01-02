@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements } from '$lib/server/db';
+import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons } from '$lib/server/db';
 import type { StreakData } from '$lib/server/db';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -72,6 +72,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	checkAndUnlockAchievements(season.id, personId);
 	const unlockedAchievements = getPersonAchievements(season.id, personId);
 	
+	// Get legacy badges from historical seasons
+	const legacyBadges = getLegacyBadgesForPerson(person.name);
+	const historicalSeasons = getHistoricalSeasons();
+	
 	return {
 		authorized: true,
 		season,
@@ -84,6 +88,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		calendarData,
 		comparisons,
 		achievements: unlockedAchievements,
-		allAchievements: ACHIEVEMENTS
+		allAchievements: ACHIEVEMENTS,
+		legacyBadges,
+		historicalSeasons
 	};
 };

@@ -2311,4 +2311,544 @@ export function getSportStatsByPerson(seasonId: number): SportStatsByPerson[] {
 	return rows;
 }
 
+// Historical seasons data - archived final results from previous years
+// These are static snapshots since we didn't have full tracking back then
+export interface HistoricalSeasonResult {
+	person_name: string;
+	person_emoji: string;
+	score: number | null; // null means no information
+	rank: number;
+}
 
+export interface HistoricalSeason {
+	year: number;
+	name: string;
+	metric: string;
+	metric_emoji: string;
+	description: string;
+	results: HistoricalSeasonResult[];
+}
+
+// Static historical data - these are final results from past seasons
+export const HISTORICAL_SEASONS: HistoricalSeason[] = [
+	{
+		year: 2025,
+		name: 'Season 2025',
+		metric: 'Sporting',
+		metric_emoji: '🏃',
+		description: 'Our first year tracking sporting activities for the whole group!',
+		results: [
+			{ person_name: 'Cas', person_emoji: '🎯', score: 147, rank: 1 },
+			{ person_name: 'Liz', person_emoji: '✨', score: 77, rank: 2 },
+			{ person_name: 'Bas', person_emoji: '🚀', score: 71, rank: 3 },
+			{ person_name: 'Joris', person_emoji: '🦁', score: 67, rank: 4 },
+			{ person_name: 'Eva', person_emoji: '🌸', score: 44, rank: 5 },
+			{ person_name: 'Rik', person_emoji: '🎸', score: 20, rank: 6 }
+		]
+	},
+	{
+		year: 2024,
+		name: 'Season 2024',
+		metric: 'Cakes Eaten',
+		metric_emoji: '🎂',
+		description: 'The original challenge - tracking cakes eaten throughout the year!',
+		results: [
+			{ person_name: 'Joris', person_emoji: '🦁', score: 33, rank: 1 },
+			{ person_name: 'Rik', person_emoji: '🎸', score: 20, rank: 2 },
+			{ person_name: 'Cas', person_emoji: '🎯', score: 19.5, rank: 3 },
+			{ person_name: 'Liz', person_emoji: '✨', score: 7, rank: 4 },
+			{ person_name: 'Eva', person_emoji: '🌸', score: 1, rank: 5 },
+			{ person_name: 'Bastiaan', person_emoji: '🚀', score: null, rank: 6 }
+		]
+	}
+];
+
+export function getHistoricalSeasons(): HistoricalSeason[] {
+	return HISTORICAL_SEASONS;
+}
+
+export function getHistoricalSeasonByYear(year: number): HistoricalSeason | undefined {
+	return HISTORICAL_SEASONS.find(s => s.year === year);
+}
+
+// ==========================================
+// HISTORICAL ANALYTICS & COMPARISON FUNCTIONS
+// ==========================================
+
+// Normalize names between historical data and current people
+function normalizeName(name: string): string {
+	const normalizations: Record<string, string> = {
+		'Bastiaan': 'Bas',
+		'Bas': 'Bas'
+	};
+	return normalizations[name] || name;
+}
+
+// Get 2025 sporting baselines for projections
+export interface SportingBaseline {
+	person_name: string;
+	person_emoji: string;
+	final_2025: number;
+}
+
+export function get2025SportingBaselines(): Map<string, SportingBaseline> {
+	const baselines = new Map<string, SportingBaseline>();
+	const sporting2025 = HISTORICAL_SEASONS.find(s => s.year === 2025);
+	
+	if (sporting2025) {
+		for (const result of sporting2025.results) {
+			if (result.score !== null) {
+				const normalized = normalizeName(result.person_name);
+				baselines.set(normalized, {
+					person_name: normalized,
+					person_emoji: result.person_emoji,
+					final_2025: result.score
+				});
+			}
+		}
+	}
+	
+	return baselines;
+}
+
+// Legacy badges - championships won in previous seasons
+export interface LegacyBadge {
+	year: number;
+	metric: string;
+	metric_emoji: string;
+	rank: number;
+	score: number | null;
+	badge_emoji: string;
+	badge_name: string;
+}
+
+export function getLegacyBadgesForPerson(personName: string): LegacyBadge[] {
+	const normalizedName = normalizeName(personName);
+	const badges: LegacyBadge[] = [];
+	
+	for (const season of HISTORICAL_SEASONS) {
+		const result = season.results.find(r => normalizeName(r.person_name) === normalizedName);
+		if (result && result.rank <= 3) {
+			const badgeEmoji = result.rank === 1 ? '🏆' : result.rank === 2 ? '🥈' : '🥉';
+			const badgeName = result.rank === 1 ? 'Champion' : result.rank === 2 ? 'Runner-up' : 'Bronze';
+			badges.push({
+				year: season.year,
+				metric: season.metric,
+				metric_emoji: season.metric_emoji,
+				rank: result.rank,
+				score: result.score,
+				badge_emoji: badgeEmoji,
+				badge_name: `${season.metric_emoji} ${badgeName} ${season.year}`
+			});
+		}
+	}
+	
+	return badges;
+}
+
+// All-time leaderboard - aggregate scores across all seasons
+export interface AllTimeStats {
+	person_name: string;
+	person_emoji: string;
+	total_score: number;
+	championships: number;
+	podiums: number;
+	seasons_participated: number;
+	best_finish: number;
+	by_metric: Record<string, number>;
+}
+
+export function getAllTimeLeaderboard(): AllTimeStats[] {
+	const statsMap = new Map<string, AllTimeStats>();
+	
+	// Process historical seasons
+	for (const season of HISTORICAL_SEASONS) {
+		for (const result of season.results) {
+			const name = normalizeName(result.person_name);
+			
+			if (!statsMap.has(name)) {
+				statsMap.set(name, {
+					person_name: name,
+					person_emoji: result.person_emoji,
+					total_score: 0,
+					championships: 0,
+					podiums: 0,
+					seasons_participated: 0,
+					best_finish: 999,
+					by_metric: {}
+				});
+			}
+			
+			const stats = statsMap.get(name)!;
+			if (result.score !== null) {
+				stats.total_score += result.score;
+				stats.by_metric[season.metric] = (stats.by_metric[season.metric] || 0) + result.score;
+			}
+			if (result.rank === 1) stats.championships++;
+			if (result.rank <= 3) stats.podiums++;
+			stats.seasons_participated++;
+			if (result.rank < stats.best_finish) stats.best_finish = result.rank;
+		}
+	}
+	
+	return Array.from(statsMap.values()).sort((a, b) => b.championships - a.championships || b.podiums - a.podiums || b.total_score - a.total_score);
+}
+
+// Dynasty tracking - consecutive wins
+export interface Dynasty {
+	person_name: string;
+	person_emoji: string;
+	metric: string;
+	years: number[];
+	length: number;
+}
+
+export function getDynasties(): Dynasty[] {
+	// Group by metric and person
+	const metricWins = new Map<string, { person: string; emoji: string; years: number[] }[]>();
+	
+	for (const season of HISTORICAL_SEASONS) {
+		const winner = season.results.find(r => r.rank === 1);
+		if (winner) {
+			if (!metricWins.has(season.metric)) {
+				metricWins.set(season.metric, []);
+			}
+			metricWins.get(season.metric)!.push({
+				person: normalizeName(winner.person_name),
+				emoji: winner.person_emoji,
+				years: [season.year]
+			});
+		}
+	}
+	
+	// Find consecutive wins (dynasties of 2+ years)
+	const dynasties: Dynasty[] = [];
+	// For now with only 2 different metrics, no dynasty possible yet
+	// This will be useful when more seasons are added
+	
+	return dynasties;
+}
+
+// Year-over-year comparison for current season vs historical
+export interface YearOverYearComparison {
+	person_name: string;
+	person_emoji: string;
+	current_score: number;
+	previous_score: number | null;
+	previous_year: number;
+	metric: string;
+	difference: number | null;
+	percentage_change: number | null;
+	pace_projection: number;
+	on_track_to_beat: boolean;
+}
+
+export function getYearOverYearComparison(seasonId: number, currentDayOfYear: number): YearOverYearComparison[] {
+	// Get current season stats
+	const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId) as { id: number; year: number } | undefined;
+	if (!season) return [];
+	
+	// Get current sporting stats (since 2025 was sporting)
+	const sportingMetric = db.prepare('SELECT id FROM metrics WHERE LOWER(name) = ?').get('sporting') as { id: number } | undefined;
+	if (!sportingMetric) return [];
+	
+	const currentStats = db.prepare(`
+		SELECT p.name as person_name, p.emoji as person_emoji, COUNT(*) as count
+		FROM entries e
+		JOIN people p ON e.person_id = p.id
+		WHERE e.season_id = ? AND e.metric_id = ? AND e.deleted_at IS NULL
+		GROUP BY p.id
+	`).all(seasonId, sportingMetric.id) as { person_name: string; person_emoji: string; count: number }[];
+	
+	// Compare with 2025 (sporting)
+	const sporting2025 = HISTORICAL_SEASONS.find(s => s.year === 2025);
+	if (!sporting2025) return [];
+	
+	const comparisons: YearOverYearComparison[] = [];
+	const daysInYear = 365;
+	const progressRatio = currentDayOfYear / daysInYear;
+	
+	for (const current of currentStats) {
+		const historical = sporting2025.results.find(r => normalizeName(r.person_name) === normalizeName(current.person_name));
+		const previousScore = historical?.score ?? null;
+		const expectedAtThisPoint = previousScore !== null ? Math.round(previousScore * progressRatio) : null;
+		const projectedFinal = Math.round(current.count / progressRatio);
+		
+		comparisons.push({
+			person_name: current.person_name,
+			person_emoji: current.person_emoji,
+			current_score: current.count,
+			previous_score: previousScore,
+			previous_year: 2025,
+			metric: 'Sporting',
+			difference: expectedAtThisPoint !== null ? current.count - expectedAtThisPoint : null,
+			percentage_change: expectedAtThisPoint !== null && expectedAtThisPoint > 0 
+				? Math.round(((current.count - expectedAtThisPoint) / expectedAtThisPoint) * 100) 
+				: null,
+			pace_projection: projectedFinal,
+			on_track_to_beat: previousScore !== null ? projectedFinal > previousScore : true
+		});
+	}
+	
+	return comparisons.sort((a, b) => (b.percentage_change ?? 0) - (a.percentage_change ?? 0));
+}
+
+// Personal records tracking
+export interface PersonalRecord {
+	person_name: string;
+	person_emoji: string;
+	metric: string;
+	metric_emoji: string;
+	record_year: number;
+	record_score: number;
+	current_score: number;
+	current_pace: number;
+	on_track_to_beat: boolean;
+	percentage_of_record: number;
+}
+
+export function getPersonalRecords(seasonId: number, currentDayOfYear: number): PersonalRecord[] {
+	const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId) as { id: number; year: number } | undefined;
+	if (!season) return [];
+	
+	const sportingMetric = db.prepare('SELECT id FROM metrics WHERE LOWER(name) = ?').get('sporting') as { id: number } | undefined;
+	if (!sportingMetric) return [];
+	
+	const currentStats = db.prepare(`
+		SELECT p.name as person_name, p.emoji as person_emoji, COUNT(*) as count
+		FROM entries e
+		JOIN people p ON e.person_id = p.id
+		WHERE e.season_id = ? AND e.metric_id = ? AND e.deleted_at IS NULL
+		GROUP BY p.id
+	`).all(seasonId, sportingMetric.id) as { person_name: string; person_emoji: string; count: number }[];
+	
+	const records: PersonalRecord[] = [];
+	const daysInYear = 365;
+	const progressRatio = currentDayOfYear / daysInYear;
+	
+	// Find personal best for each person from historical data
+	for (const current of currentStats) {
+		const normalizedName = normalizeName(current.person_name);
+		let bestScore = 0;
+		let bestYear = 0;
+		let bestMetric = '';
+		let bestMetricEmoji = '';
+		
+		// Check 2025 sporting
+		const sporting2025 = HISTORICAL_SEASONS.find(s => s.year === 2025);
+		const sportResult = sporting2025?.results.find(r => normalizeName(r.person_name) === normalizedName);
+		if (sportResult && sportResult.score !== null && sportResult.score > bestScore) {
+			bestScore = sportResult.score;
+			bestYear = 2025;
+			bestMetric = 'Sporting';
+			bestMetricEmoji = '🏃';
+		}
+		
+		if (bestScore > 0) {
+			const projectedFinal = Math.round(current.count / progressRatio);
+			records.push({
+				person_name: current.person_name,
+				person_emoji: current.person_emoji,
+				metric: bestMetric,
+				metric_emoji: bestMetricEmoji,
+				record_year: bestYear,
+				record_score: bestScore,
+				current_score: current.count,
+				current_pace: projectedFinal,
+				on_track_to_beat: projectedFinal > bestScore,
+				percentage_of_record: Math.round((current.count / bestScore) * 100)
+			});
+		}
+	}
+	
+	return records.sort((a, b) => b.percentage_of_record - a.percentage_of_record);
+}
+
+// Head-to-head historical comparison between two people
+export interface HeadToHeadHistory {
+	person1: { name: string; emoji: string };
+	person2: { name: string; emoji: string };
+	seasons: {
+		year: number;
+		metric: string;
+		metric_emoji: string;
+		person1_score: number | null;
+		person2_score: number | null;
+		person1_rank: number;
+		person2_rank: number;
+		winner: 1 | 2 | 0;
+	}[];
+	total_wins: { person1: number; person2: number; ties: number };
+}
+
+export function getHeadToHeadHistory(person1Name: string, person2Name: string): HeadToHeadHistory {
+	const norm1 = normalizeName(person1Name);
+	const norm2 = normalizeName(person2Name);
+	
+	const result: HeadToHeadHistory = {
+		person1: { name: person1Name, emoji: '👤' },
+		person2: { name: person2Name, emoji: '👤' },
+		seasons: [],
+		total_wins: { person1: 0, person2: 0, ties: 0 }
+	};
+	
+	for (const season of HISTORICAL_SEASONS) {
+		const p1 = season.results.find(r => normalizeName(r.person_name) === norm1);
+		const p2 = season.results.find(r => normalizeName(r.person_name) === norm2);
+		
+		if (p1) result.person1.emoji = p1.person_emoji;
+		if (p2) result.person2.emoji = p2.person_emoji;
+		
+		if (p1 && p2) {
+			let winner: 1 | 2 | 0 = 0;
+			if (p1.score !== null && p2.score !== null) {
+				if (p1.score > p2.score) {
+					winner = 1;
+					result.total_wins.person1++;
+				} else if (p2.score > p1.score) {
+					winner = 2;
+					result.total_wins.person2++;
+				} else {
+					result.total_wins.ties++;
+				}
+			}
+			
+			result.seasons.push({
+				year: season.year,
+				metric: season.metric,
+				metric_emoji: season.metric_emoji,
+				person1_score: p1.score,
+				person2_score: p2.score,
+				person1_rank: p1.rank,
+				person2_rank: p2.rank,
+				winner
+			});
+		}
+	}
+	
+	return result;
+}
+
+// Improvement tracking - who improved the most between seasons
+export interface ImprovementStats {
+	person_name: string;
+	person_emoji: string;
+	from_year: number;
+	to_year: number;
+	metric: string;
+	from_rank: number;
+	to_rank: number;
+	rank_improvement: number;
+	from_score: number | null;
+	to_score: number | null;
+	score_improvement: number | null;
+}
+
+export function getImprovementStats(): ImprovementStats[] {
+	// Can only track improvement for sporting (2025) 
+	// Future: When we have 2026 data, we can compare
+	return [];
+}
+
+// Timeline data for visualization
+export interface TimelineData {
+	years: number[];
+	people: {
+		name: string;
+		emoji: string;
+		data: { year: number; score: number | null; rank: number; metric: string }[];
+	}[];
+}
+
+export function getTimelineData(): TimelineData {
+	const years = HISTORICAL_SEASONS.map(s => s.year).sort((a, b) => a - b);
+	const peopleMap = new Map<string, { emoji: string; data: { year: number; score: number | null; rank: number; metric: string }[] }>();
+	
+	for (const season of HISTORICAL_SEASONS) {
+		for (const result of season.results) {
+			const name = normalizeName(result.person_name);
+			if (!peopleMap.has(name)) {
+				peopleMap.set(name, { emoji: result.person_emoji, data: [] });
+			}
+			peopleMap.get(name)!.data.push({
+				year: season.year,
+				score: result.score,
+				rank: result.rank,
+				metric: season.metric
+			});
+		}
+	}
+	
+	return {
+		years,
+		people: Array.from(peopleMap.entries()).map(([name, data]) => ({
+			name,
+			emoji: data.emoji,
+			data: data.data.sort((a, b) => a.year - b.year)
+		}))
+	};
+}
+
+// Predictions based on current pace
+export interface Prediction {
+	person_name: string;
+	person_emoji: string;
+	current_score: number;
+	days_elapsed: number;
+	daily_average: number;
+	projected_final: number;
+	projected_rank: number;
+	confidence: 'low' | 'medium' | 'high';
+	comparison_to_2025: {
+		would_beat: boolean;
+		difference: number;
+	} | null;
+}
+
+export function getPredictions(seasonId: number, currentDayOfYear: number): Prediction[] {
+	const sportingMetric = db.prepare('SELECT id FROM metrics WHERE LOWER(name) = ?').get('sporting') as { id: number } | undefined;
+	if (!sportingMetric) return [];
+	
+	const currentStats = db.prepare(`
+		SELECT p.name as person_name, p.emoji as person_emoji, COUNT(*) as count
+		FROM entries e
+		JOIN people p ON e.person_id = p.id
+		WHERE e.season_id = ? AND e.metric_id = ? AND e.deleted_at IS NULL
+		GROUP BY p.id
+	`).all(seasonId, sportingMetric.id) as { person_name: string; person_emoji: string; count: number }[];
+	
+	const sporting2025 = HISTORICAL_SEASONS.find(s => s.year === 2025);
+	const daysInYear = 365;
+	
+	const predictions: Prediction[] = currentStats.map(stat => {
+		const dailyAvg = stat.count / currentDayOfYear;
+		const projectedFinal = Math.round(dailyAvg * daysInYear);
+		const historical = sporting2025?.results.find(r => normalizeName(r.person_name) === normalizeName(stat.person_name));
+		
+		// Confidence based on days elapsed
+		let confidence: 'low' | 'medium' | 'high' = 'low';
+		if (currentDayOfYear >= 90) confidence = 'medium';
+		if (currentDayOfYear >= 180) confidence = 'high';
+		
+		return {
+			person_name: stat.person_name,
+			person_emoji: stat.person_emoji,
+			current_score: stat.count,
+			days_elapsed: currentDayOfYear,
+			daily_average: Math.round(dailyAvg * 100) / 100,
+			projected_final: projectedFinal,
+			projected_rank: 0, // Will be set after sorting
+			confidence,
+			comparison_to_2025: historical?.score !== null ? {
+				would_beat: projectedFinal > (historical?.score || 0),
+				difference: projectedFinal - (historical?.score || 0)
+			} : null
+		};
+	});
+	
+	// Sort by projected final and assign ranks
+	predictions.sort((a, b) => b.projected_final - a.projected_final);
+	predictions.forEach((p, i) => p.projected_rank = i + 1);
+	
+	return predictions;
+}

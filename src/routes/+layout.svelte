@@ -72,7 +72,7 @@
 		{/if}
 		
 		<Navigation {role} onLogout={handleLogout} />
-		<main class="flex-1 p-4 max-w-4xl mx-auto w-full">
+		<main class="flex-1 p-4 max-w-4xl mx-auto w-full pb-20 md:pb-4">
 			{@render children()}
 		</main>
 	</div>
