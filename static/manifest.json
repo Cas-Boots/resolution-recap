@@ -2,21 +2,21 @@
 	"name": "Snapvrienden Recap",
 	"short_name": "Recap",
 	"description": "Track friend group metrics for the New Year's quiz",
-	"start_url": "/snapvrienden-r3c4p/",
-	"scope": "/snapvrienden-r3c4p/",
+	"start_url": "/",
+	"scope": "/",
 	"display": "standalone",
 	"background_color": "#6366f1",
 	"theme_color": "#6366f1",
 	"orientation": "portrait",
 	"icons": [
 		{
-			"src": "/snapvrienden-r3c4p/icon-192.svg",
+			"src": "/icon-192.svg",
 			"sizes": "192x192",
 			"type": "image/svg+xml",
 			"purpose": "any"
 		},
 		{
-			"src": "/snapvrienden-r3c4p/icon-512.svg",
+			"src": "/icon-512.svg",
 			"sizes": "512x512",
 			"type": "image/svg+xml",
 			"purpose": "any"

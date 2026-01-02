@@ -16,7 +16,6 @@ services:
       - TRACKER_PIN=${TRACKER_PIN}
       - ADMIN_PIN=${ADMIN_PIN}
       - BACKUP_TOKEN=${BACKUP_TOKEN}
-      - BASE_PATH=${BASE_PATH:-/snapvrienden-r3c4p}
     volumes:
       # CRITICAL: Mount a persistent volume for the database
       # In Dokploy, go to "Mounts" and add:
@@ -26,7 +25,7 @@ services:
       - resolution-recap-data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/snapvrienden-r3c4p/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -36,19 +35,21 @@ services:
     labels:
       # Traefik labels for reverse proxy routing
       - "traefik.enable=true"
-      # HTTP Router
-      - "traefik.http.routers.resolution-recap.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`${BASE_PATH:-/snapvrienden-r3c4p}`)"
+      - "traefik.docker.network=dokploy-network"
+      # HTTP Router - redirect to HTTPS
+      - "traefik.http.routers.resolution-recap.rule=PathPrefix(`/`)"
       - "traefik.http.routers.resolution-recap.entrypoints=web"
-      # HTTPS Router (if using SSL)
-      - "traefik.http.routers.resolution-recap-secure.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`${BASE_PATH:-/snapvrienden-r3c4p}`)"
+      - "traefik.http.routers.resolution-recap.middlewares=redirect-to-https@docker"
+      # HTTPS Router
+      - "traefik.http.routers.resolution-recap-secure.rule=PathPrefix(`/`)"
       - "traefik.http.routers.resolution-recap-secure.entrypoints=websecure"
       - "traefik.http.routers.resolution-recap-secure.tls=true"
       - "traefik.http.routers.resolution-recap-secure.tls.certresolver=letsencrypt"
       # Service configuration
       - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
-      # Health check
-      - "traefik.http.services.resolution-recap.loadbalancer.healthcheck.path=${BASE_PATH:-/snapvrienden-r3c4p}/"
-      - "traefik.http.services.resolution-recap.loadbalancer.healthcheck.interval=30s"
+      # Redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
     deploy:
       resources:
         limits:

@@ -1,21 +1,57 @@
 import Database from 'better-sqlite3';
+import type { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// Use process.env for DB_PATH since it's optional and should work without being set at build time
-const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-	fs.mkdirSync(dbDir, { recursive: true });
+// Check if we're in build phase - don't initialize DB during build
+const isBuildPhase = process.env.npm_lifecycle_event === 'build' || 
+	process.argv.some(arg => arg.includes('svelte-kit')) ||
+	process.argv.some(arg => arg.includes('vite') && process.argv.some(a => a === 'build'));
+
+// Lazy database initialization - only create when first accessed at runtime
+let _db: DatabaseType | null = null;
+
+function getDb(): DatabaseType {
+	if (_db) return _db;
+	
+	if (isBuildPhase) {
+		throw new Error('Database should not be accessed during build phase');
+	}
+
+	const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
+	const dbDir = path.dirname(dbPath);
+	if (!fs.existsSync(dbDir)) {
+		fs.mkdirSync(dbDir, { recursive: true });
+	}
+
+	_db = new Database(dbPath);
+
+	// Enable WAL mode for better concurrent access
+	_db.pragma('journal_mode = WAL');
+
+	// Initialize schema
+	initializeSchema(_db);
+	
+	// Seed data if needed
+	seedDatabase(_db, dbPath);
+
+	return _db;
 }
 
-export const db = new Database(dbPath);
+// Export a proxy that lazily initializes the database
+export const db = new Proxy({} as DatabaseType, {
+	get(_, prop) {
+		const database = getDb();
+		const value = (database as any)[prop];
+		if (typeof value === 'function') {
+			return value.bind(database);
+		}
+		return value;
+	}
+});
 
-// Enable WAL mode for better concurrent access
-db.pragma('journal_mode = WAL');
-
-// Initialize schema
-db.exec(`
+function initializeSchema(database: DatabaseType) {
+	database.exec(`
 	CREATE TABLE IF NOT EXISTS seasons (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		year INTEGER NOT NULL UNIQUE,
@@ -79,149 +115,150 @@ db.exec(`
 	CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
 `);
 
-// Migration: Add deleted_at column if it doesn't exist (for existing databases)
-try {
-	db.exec(`ALTER TABLE entries ADD COLUMN deleted_at TEXT DEFAULT NULL`);
-} catch {
-	// Column already exists
-}
-
-// Migration: Add tags column for sporting activity types
-try {
-	db.exec(`ALTER TABLE entries ADD COLUMN tags TEXT DEFAULT NULL`);
-} catch {
-	// Column already exists
-}
-
-// Create index for deleted_at (after migration ensures column exists)
-try {
-	db.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON entries(deleted_at)`);
-} catch {
-	// Index might already exist
-}
-
-// Migration: Create entry_audit table if it doesn't exist
-try {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS entry_audit (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			entry_id INTEGER NOT NULL,
-			action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete', 'undelete')),
-			old_values TEXT,
-			new_values TEXT,
-			performed_by TEXT NOT NULL CHECK (performed_by IN ('tracker', 'admin')),
-			performed_at TEXT NOT NULL DEFAULT (datetime('now')),
-			FOREIGN KEY (entry_id) REFERENCES entries(id)
-		);
-		CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
-	`);
-} catch {
-	// Table already exists
-}
-
-// Migration: Create settings table if it doesn't exist
-try {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS settings (
-			key TEXT PRIMARY KEY,
-			value TEXT NOT NULL,
-			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-		)
-	`);
-} catch {
-	// Table already exists
-}
-
-// Migration: Add emoji column to people table if it doesn't exist
-try {
-	db.exec(`ALTER TABLE people ADD COLUMN emoji TEXT NOT NULL DEFAULT '👤'`);
-	// Set unique emojis for existing people
-	const defaultEmojis: Record<string, string> = {
-		'Cas': '🎯', 'Joris': '🦁', 'Eva': '🌸', 'Rik': '🎸', 'Liz': '✨', 'Bastiaan': '🚀'
-	};
-	const updateEmoji = db.prepare('UPDATE people SET emoji = ? WHERE name = ?');
-	for (const [name, emoji] of Object.entries(defaultEmojis)) {
-		updateEmoji.run(emoji, name);
+	// Migration: Add deleted_at column if it doesn't exist (for existing databases)
+	try {
+		database.exec(`ALTER TABLE entries ADD COLUMN deleted_at TEXT DEFAULT NULL`);
+	} catch {
+		// Column already exists
 	}
-} catch {
-	// Column already exists
-}
 
-// Migration: Add emoji column to metrics table if it doesn't exist
-try {
-	db.exec(`ALTER TABLE metrics ADD COLUMN emoji TEXT NOT NULL DEFAULT '📊'`);
-	// Set unique emojis for existing metrics
-	const defaultMetricEmojis: Record<string, string> = {
-		'sporting': '🏃', 'cakes eaten': '🎂'
-	};
-	const updateMetricEmoji = db.prepare('UPDATE metrics SET emoji = ? WHERE LOWER(name) = LOWER(?)');
-	for (const [name, emoji] of Object.entries(defaultMetricEmojis)) {
-		updateMetricEmoji.run(emoji, name);
+	// Migration: Add tags column for sporting activity types
+	try {
+		database.exec(`ALTER TABLE entries ADD COLUMN tags TEXT DEFAULT NULL`);
+	} catch {
+		// Column already exists
 	}
-} catch {
-	// Column already exists
-}
 
-// Migration: Create goals table for tracking targets per person per metric per season
-try {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS goals (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			season_id INTEGER NOT NULL,
-			person_id INTEGER NOT NULL,
-			metric_id INTEGER NOT NULL,
-			target INTEGER NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-			FOREIGN KEY (season_id) REFERENCES seasons(id),
-			FOREIGN KEY (person_id) REFERENCES people(id),
-			FOREIGN KEY (metric_id) REFERENCES metrics(id),
-			UNIQUE(season_id, person_id, metric_id)
-		);
-		CREATE INDEX IF NOT EXISTS idx_goals_season ON goals(season_id);
-	`);
-} catch {
-	// Table already exists
-}
+	// Create index for deleted_at (after migration ensures column exists)
+	try {
+		database.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON entries(deleted_at)`);
+	} catch {
+		// Index might already exist
+	}
 
-// Migration: Create achievements table
-try {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS achievements (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			season_id INTEGER NOT NULL,
-			person_id INTEGER NOT NULL,
-			achievement_key TEXT NOT NULL,
-			unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
-			FOREIGN KEY (season_id) REFERENCES seasons(id),
-			FOREIGN KEY (person_id) REFERENCES people(id),
-			UNIQUE(season_id, person_id, achievement_key)
-		);
-		CREATE INDEX IF NOT EXISTS idx_achievements_person ON achievements(person_id);
-	`);
-} catch {
-	// Table already exists
-}
+	// Migration: Create entry_audit table if it doesn't exist
+	try {
+		database.exec(`
+			CREATE TABLE IF NOT EXISTS entry_audit (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				entry_id INTEGER NOT NULL,
+				action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete', 'undelete')),
+				old_values TEXT,
+				new_values TEXT,
+				performed_by TEXT NOT NULL CHECK (performed_by IN ('tracker', 'admin')),
+				performed_at TEXT NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY (entry_id) REFERENCES entries(id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
+		`);
+	} catch {
+		// Table already exists
+	}
 
-// Migration: Create countries_visited table for tracking countries per person per season
-try {
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS countries_visited (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			season_id INTEGER NOT NULL,
-			person_id INTEGER NOT NULL,
-			country_code TEXT NOT NULL,
-			country_name TEXT NOT NULL,
-			visited_at TEXT NOT NULL DEFAULT (datetime('now')),
-			FOREIGN KEY (season_id) REFERENCES seasons(id),
-			FOREIGN KEY (person_id) REFERENCES people(id),
-			UNIQUE(season_id, person_id, country_code)
-		);
-		CREATE INDEX IF NOT EXISTS idx_countries_visited_person ON countries_visited(person_id);
-		CREATE INDEX IF NOT EXISTS idx_countries_visited_season ON countries_visited(season_id);
-	`);
-} catch {
-	// Table already exists
+	// Migration: Create settings table if it doesn't exist
+	try {
+		database.exec(`
+			CREATE TABLE IF NOT EXISTS settings (
+				key TEXT PRIMARY KEY,
+				value TEXT NOT NULL,
+				updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+			)
+		`);
+	} catch {
+		// Table already exists
+	}
+
+	// Migration: Add emoji column to people table if it doesn't exist
+	try {
+		database.exec(`ALTER TABLE people ADD COLUMN emoji TEXT NOT NULL DEFAULT '👤'`);
+		// Set unique emojis for existing people
+		const defaultEmojis: Record<string, string> = {
+			'Cas': '🎯', 'Joris': '🦁', 'Eva': '🌸', 'Rik': '🎸', 'Liz': '✨', 'Bastiaan': '🚀'
+		};
+		const updateEmoji = database.prepare('UPDATE people SET emoji = ? WHERE name = ?');
+		for (const [name, emoji] of Object.entries(defaultEmojis)) {
+			updateEmoji.run(emoji, name);
+		}
+	} catch {
+		// Column already exists
+	}
+
+	// Migration: Add emoji column to metrics table if it doesn't exist
+	try {
+		database.exec(`ALTER TABLE metrics ADD COLUMN emoji TEXT NOT NULL DEFAULT '📊'`);
+		// Set unique emojis for existing metrics
+		const defaultMetricEmojis: Record<string, string> = {
+			'sporting': '🏃', 'cakes eaten': '🎂'
+		};
+		const updateMetricEmoji = database.prepare('UPDATE metrics SET emoji = ? WHERE LOWER(name) = LOWER(?)');
+		for (const [name, emoji] of Object.entries(defaultMetricEmojis)) {
+			updateMetricEmoji.run(emoji, name);
+		}
+	} catch {
+		// Column already exists
+	}
+
+	// Migration: Create goals table for tracking targets per person per metric per season
+	try {
+		database.exec(`
+			CREATE TABLE IF NOT EXISTS goals (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				season_id INTEGER NOT NULL,
+				person_id INTEGER NOT NULL,
+				metric_id INTEGER NOT NULL,
+				target INTEGER NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY (season_id) REFERENCES seasons(id),
+				FOREIGN KEY (person_id) REFERENCES people(id),
+				FOREIGN KEY (metric_id) REFERENCES metrics(id),
+				UNIQUE(season_id, person_id, metric_id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_goals_season ON goals(season_id);
+		`);
+	} catch {
+		// Table already exists
+	}
+
+	// Migration: Create achievements table
+	try {
+		database.exec(`
+			CREATE TABLE IF NOT EXISTS achievements (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				season_id INTEGER NOT NULL,
+				person_id INTEGER NOT NULL,
+				achievement_key TEXT NOT NULL,
+				unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY (season_id) REFERENCES seasons(id),
+				FOREIGN KEY (person_id) REFERENCES people(id),
+				UNIQUE(season_id, person_id, achievement_key)
+			);
+			CREATE INDEX IF NOT EXISTS idx_achievements_person ON achievements(person_id);
+		`);
+	} catch {
+		// Table already exists
+	}
+
+	// Migration: Create countries_visited table for tracking countries per person per season
+	try {
+		database.exec(`
+			CREATE TABLE IF NOT EXISTS countries_visited (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				season_id INTEGER NOT NULL,
+				person_id INTEGER NOT NULL,
+				country_code TEXT NOT NULL,
+				country_name TEXT NOT NULL,
+				visited_at TEXT NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY (season_id) REFERENCES seasons(id),
+				FOREIGN KEY (person_id) REFERENCES people(id),
+				UNIQUE(season_id, person_id, country_code)
+			);
+			CREATE INDEX IF NOT EXISTS idx_countries_visited_person ON countries_visited(person_id);
+			CREATE INDEX IF NOT EXISTS idx_countries_visited_season ON countries_visited(season_id);
+		`);
+	} catch {
+		// Table already exists
+	}
 }
 
 // Achievement definitions
@@ -277,14 +314,15 @@ export function setSetting(key: string, value: string): void {
 }
 
 // Seed data if tables are empty
-function seedDatabase() {
-	const seasonCount = db.prepare('SELECT COUNT(*) as count FROM seasons').get() as { count: number };
-	const entriesCount = db.prepare('SELECT COUNT(*) as count FROM entries').get() as { count: number };
+function seedDatabase(database: DatabaseType, dbPath: string) {
+	const seasonCount = database.prepare('SELECT COUNT(*) as count FROM seasons').get() as { count: number };
+	const entriesCount = database.prepare('SELECT COUNT(*) as count FROM entries').get() as { count: number };
 	
 	// Warn if database appears to be freshly created in production
 	const isProduction = process.env.NODE_ENV === 'production';
 	if (isProduction && seasonCount.count === 0 && entriesCount.count === 0) {
 		console.warn('⚠️  WARNING: Database is empty in production!');
+		console.warn('📦 Seeding database with initial data...');
 		console.warn('⚠️  This might indicate that the volume was not mounted correctly.');
 		console.warn('⚠️  Check that /app/data is mounted to a persistent volume.');
 		console.warn('⚠️  DB_PATH:', dbPath);
@@ -293,15 +331,15 @@ function seedDatabase() {
 	if (seasonCount.count === 0) {
 		console.log('📦 Seeding database with initial data...');
 		// Insert 2026 season as active
-		db.prepare(`
+		database.prepare(`
 			INSERT INTO seasons (year, name, is_active) VALUES (2026, 'Season 2026', 1)
 		`).run();
 	}
 
-	const peopleCount = db.prepare('SELECT COUNT(*) as count FROM people').get() as { count: number };
+	const peopleCount = database.prepare('SELECT COUNT(*) as count FROM people').get() as { count: number };
 	
 	if (peopleCount.count === 0) {
-		const insertPerson = db.prepare('INSERT INTO people (name, emoji) VALUES (?, ?)');
+		const insertPerson = database.prepare('INSERT INTO people (name, emoji) VALUES (?, ?)');
 		const friends: [string, string][] = [
 			['Cas', '🎯'],
 			['Joris', '🦁'],
@@ -315,10 +353,10 @@ function seedDatabase() {
 		}
 	}
 
-	const metricsCount = db.prepare('SELECT COUNT(*) as count FROM metrics').get() as { count: number };
+	const metricsCount = database.prepare('SELECT COUNT(*) as count FROM metrics').get() as { count: number };
 	
 	if (metricsCount.count === 0) {
-		const insertMetric = db.prepare('INSERT INTO metrics (name) VALUES (?)');
+		const insertMetric = database.prepare('INSERT INTO metrics (name) VALUES (?)');
 		const metrics = ['Sporting', 'Cakes Eaten'];
 		for (const name of metrics) {
 			insertMetric.run(name);
@@ -326,17 +364,23 @@ function seedDatabase() {
 	}
 
 	// Initialize PINs from environment if not set in database
-	const trackerPin = getSetting('tracker_pin');
+	const trackerPin = database.prepare('SELECT value FROM settings WHERE key = ?').get('tracker_pin') as { value: string } | undefined;
 	if (!trackerPin && process.env.TRACKER_PIN) {
-		setSetting('tracker_pin', process.env.TRACKER_PIN);
+		database.prepare(`
+			INSERT INTO settings (key, value, updated_at) 
+			VALUES (?, ?, datetime('now'))
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+		`).run('tracker_pin', process.env.TRACKER_PIN);
 	}
-	const adminPin = getSetting('admin_pin');
+	const adminPin = database.prepare('SELECT value FROM settings WHERE key = ?').get('admin_pin') as { value: string } | undefined;
 	if (!adminPin && process.env.ADMIN_PIN) {
-		setSetting('admin_pin', process.env.ADMIN_PIN);
+		database.prepare(`
+			INSERT INTO settings (key, value, updated_at) 
+			VALUES (?, ?, datetime('now'))
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+		`).run('admin_pin', process.env.ADMIN_PIN);
 	}
 }
-
-seedDatabase();
 
 // Type definitions
 export interface Season {

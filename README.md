@@ -40,23 +40,22 @@ A mobile-friendly web app to track friend group metrics (sporting, cakes eaten, 
 
 1. Create a new Application in Dokploy
 2. Connect to your GitHub repository
-3. Set build method to **Dockerfile** or **Railpacks** (auto-detect)
+3. Set build method to **Docker Compose**
 4. Add environment variables:
    - `TRACKER_PIN` - PIN for the tracker role
    - `ADMIN_PIN` - PIN for the admin role
    - `BACKUP_TOKEN` - Secret token for automated backups
-   - `DB_PATH` - `/app/data/resolution-recap.db`
-5. Add a **volume mount**:
-   - Host path or volume: `resolution-recap-data`
+5. Add a **volume mount** (or let Docker Compose create it):
+   - Volume name: `resolution-recap-data`
    - Container path: `/app/data`
-6. Configure domain: `recap.avs-api.nl` with base path `/snapvrienden-r3c4p`
+6. Configure your subdomain in Dokploy's Domains section
 7. Deploy!
 
 ### GitHub Actions Backup
 
 1. Go to your repository Settings → Secrets and variables → Actions
 2. Add repository secrets:
-   - `APP_URL` - Your deployed app URL (e.g., `https://recap.avs-api.nl/snapvrienden-r3c4p`)
+   - `APP_URL` - Your deployed app URL (e.g., `https://recap.yourdomain.com`)
    - `BACKUP_TOKEN` - Same token as in Dokploy env vars
 3. The workflow runs daily at midnight UTC and commits backups to the `backups/` folder
 
@@ -65,7 +64,7 @@ A mobile-friendly web app to track friend group metrics (sporting, cakes eaten, 
 - **Frontend**: SvelteKit 5 + TailwindCSS 4
 - **Backend**: SvelteKit API routes
 - **Database**: SQLite with better-sqlite3
-- **Deployment**: Docker / Dokploy with Railpacks
+- **Deployment**: Docker Compose / Dokploy
 
 ## Pre-seeded Data
 
@@ -76,10 +75,10 @@ On first run, the app seeds:
 
 ## Security Notes
 
-- The app uses an obscure URL path (`/snapvrienden-r3c4p/`) to avoid random access
+- PIN authentication protects all sensitive routes
 - `robots.txt` blocks crawlers with `Disallow: /`
 - `<meta name="robots" content="noindex, nofollow">` prevents indexing
-- Simple PIN authentication (not meant for sensitive data)
+- Use a dedicated subdomain for additional obscurity
 
 ## License
 

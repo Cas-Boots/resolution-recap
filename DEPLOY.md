@@ -7,7 +7,7 @@
 ## Prerequisites
 - GitHub repository with your code
 - Dokploy instance running
-- Domain configured (optional)
+- Subdomain configured for the app
 
 ## Deployment Steps
 
@@ -15,7 +15,7 @@
 Make sure your code is pushed to a GitHub repository:
 ```bash
 git add .
-git commit -m "Add Nixpacks configuration for deployment"
+git commit -m "Deploy to production"
 git push origin main
 ```
 
@@ -35,7 +35,7 @@ In the application settings:
 
 | Setting | Value |
 |---------|-------|
-| **Build Type** | Dockerfile |
+| **Build Type** | Docker Compose |
 | **Build Path** | `/` (root) |
 | **Port** | `3000` |
 
@@ -43,20 +43,17 @@ In the application settings:
 
 **Before deploying**, configure persistent storage to prevent data loss:
 
-1. Go to **Advanced** → **Volumes**
-2. Add a volume mount:
-   - **Source/Volume Name**: `resolution-recap-data` (or any name)
-   - **Target/Container Path**: `/app/data`
-   - **Type**: Named volume (preferred) or bind mount
-
-**For Docker Compose deployments**, ensure your compose file includes:
+The `docker-compose.yml` already includes volume configuration:
 ```yaml
 volumes:
   - resolution-recap-data:/app/data
 
 volumes:
   resolution-recap-data:
+    name: resolution-recap-data
 ```
+
+Docker will automatically create the named volume on first deploy.
 
 **For manual Docker runs**:
 ```bash
@@ -69,18 +66,22 @@ Add these environment variables in Dokploy:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
-| `NODE_ENV` | `production` | Production mode |
-| `PORT` | `3000` | Server port |
-| `HOST` | `0.0.0.0` | Bind to all interfaces |
-| `DB_PATH` | `/app/data/resolution-recap.db` | SQLite database path |
 | `TRACKER_PIN` | `your-pin` | PIN for tracker access |
 | `ADMIN_PIN` | `your-admin-pin` | PIN for admin access |
+| `BACKUP_TOKEN` | `your-backup-token` | Token for automated backups |
 
-### 6. Domain Configuration (Optional)
+The following are already set in the Dockerfile/docker-compose:
+- `NODE_ENV=production`
+- `PORT=3000`
+- `HOST=0.0.0.0`
+- `DB_PATH=/app/data/resolution-recap.db`
 
-1. Go to **Domains** tab
-2. Add your domain or use the auto-generated one
-3. Enable HTTPS if using a custom domain
+### 6. Domain Configuration
+
+1. Go to **Domains** tab in Dokploy
+2. Add your subdomain (e.g., `recap.yourdomain.com`)
+3. Enable HTTPS (Dokploy handles Let's Encrypt automatically)
+4. The app will be accessible at the root of your subdomain
 
 ### 7. Deploy
 
@@ -151,7 +152,7 @@ The database uses WAL mode for better concurrent access. If you see lock errors:
 
 - `.dockerignore` - Excludes data/ from builds (prevents data loss!)
 - `Dockerfile` - Docker build configuration
-- `nixpacks.toml` - Alternative Nixpacks build (not recommended for SQLite)
+- `docker-compose.yml` - Docker Compose with volume and network config
 - `package.json` - Node.js configuration with build scripts
 - `svelte.config.js` - SvelteKit with Node adapter
 - `scripts/backup.sh` - Database backup script

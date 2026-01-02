@@ -10,6 +10,7 @@ RUN npm ci
 COPY . .
 
 # Generate SvelteKit files first, then build
+# BASE_PATH must be available here for svelte.config.js
 RUN npx svelte-kit sync && npm run build
 
 # Production stage
