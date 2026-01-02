@@ -324,7 +324,7 @@
 				<h2 class="font-semibold text-gray-800 mb-4">⚔️ Head-to-Head Comparison</h2>
 				
 				<div class="mb-4">
-					<label class="text-sm text-gray-600 mb-2 block">Compare with:</label>
+					<p class="text-sm text-gray-600 mb-2">Compare with:</p>
 					<div class="flex flex-wrap gap-2">
 						{#each data.comparisons || [] as other}
 							<button

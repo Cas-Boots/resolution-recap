@@ -198,8 +198,9 @@
 					</div>
 				{:else}
 					{#each allTrivia as question}
-						<div 
-							class="bg-white/10 backdrop-blur rounded-xl p-6 cursor-pointer hover:bg-white/20 transition-all"
+						<button 
+							type="button"
+							class="bg-white/10 backdrop-blur rounded-xl p-6 cursor-pointer hover:bg-white/20 transition-all w-full text-left"
 							onclick={() => revealTrivia(question.id)}
 						>
 							<div class="flex items-start gap-4">
@@ -225,7 +226,7 @@
 									{/if}
 								</div>
 							</div>
-						</div>
+						</button>
 					{/each}
 				{/if}
 			</div>
