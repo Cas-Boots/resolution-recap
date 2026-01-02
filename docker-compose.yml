@@ -1,10 +1,10 @@
 # Docker Compose for Resolution Recap
-# This ensures proper data persistence across rebuilds
+# Configured for Dokploy deployment automation
 
 services:
   app:
     build: .
-    # Don't map to host port - Dokploy handles reverse proxy
+    # Don't map to host port - Dokploy/Traefik handles reverse proxy
     expose:
       - "3000"
     environment:
@@ -31,6 +31,37 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    networks:
+      - dokploy-network
+    labels:
+      # Traefik labels for reverse proxy routing
+      - "traefik.enable=true"
+      # HTTP Router
+      - "traefik.http.routers.resolution-recap.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`${BASE_PATH:-/snapvrienden-r3c4p}`)"
+      - "traefik.http.routers.resolution-recap.entrypoints=web"
+      # HTTPS Router (if using SSL)
+      - "traefik.http.routers.resolution-recap-secure.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`${BASE_PATH:-/snapvrienden-r3c4p}`)"
+      - "traefik.http.routers.resolution-recap-secure.entrypoints=websecure"
+      - "traefik.http.routers.resolution-recap-secure.tls=true"
+      - "traefik.http.routers.resolution-recap-secure.tls.certresolver=letsencrypt"
+      # Service configuration
+      - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
+      # Health check
+      - "traefik.http.services.resolution-recap.loadbalancer.healthcheck.path=${BASE_PATH:-/snapvrienden-r3c4p}/"
+      - "traefik.http.services.resolution-recap.loadbalancer.healthcheck.interval=30s"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
 
 volumes:
   resolution-recap-data:
+    # External volume - must be created beforehand, won't be deleted by docker-compose down -v
+    # Create with: docker volume create resolution-recap-data
+    external: true
+
+networks:
+  dokploy-network:
+    external: true
