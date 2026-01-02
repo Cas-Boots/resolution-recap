@@ -4,35 +4,59 @@
 services:
   app:
     build: .
-    container_name: resolution-recap-app
-    # Expose port internally for Dokploy/Traefik to route to (not mapped to host)
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     expose:
       - "3000"
     environment:
+      - TZ=Europe/Amsterdam
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=3000
       - DB_PATH=/app/data/resolution-recap.db
+      - PROTOCOL_HEADER=x-forwarded-proto
+      - HOST_HEADER=x-forwarded-host
       # Set these in Dokploy environment variables!
       - TRACKER_PIN=${TRACKER_PIN}
       - ADMIN_PIN=${ADMIN_PIN}
       - BACKUP_TOKEN=${BACKUP_TOKEN}
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.resolution-recap.rule=Host(`resolution-recap.avs-api.nl`)"
+      - "traefik.http.routers.resolution-recap.entrypoints=websecure"
+      - "traefik.http.routers.resolution-recap.tls.certresolver=letsencrypt"
+      - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
+      - "traefik.http.services.resolution-recap.loadbalancer.passhostheader=true"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.resolution-recap-http.rule=Host(`resolution-recap.avs-api.nl`)"
+      - "traefik.http.routers.resolution-recap-http.entrypoints=web"
+      - "traefik.http.routers.resolution-recap-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # Proxy headers for SvelteKit origin detection
+      - "traefik.http.middlewares.resolution-recap-headers.headers.customRequestHeaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.resolution-recap-headers.headers.customRequestHeaders.X-Forwarded-Host=resolution-recap.avs-api.nl"
+      - "traefik.http.routers.resolution-recap.middlewares=resolution-recap-headers"
     volumes:
-      # CRITICAL: Mount a persistent volume for the database
       - resolution-recap-data:/app/data
-    restart: unless-stopped
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-    networks:
-      - dokploy-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.services.resolution-recap.loadbalancer.server.port=3000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
 
 volumes:
   resolution-recap-data:
