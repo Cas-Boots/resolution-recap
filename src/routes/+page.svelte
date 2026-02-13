@@ -59,6 +59,7 @@
 		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
 		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
 		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
+		{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
 		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
 	]);
 
@@ -666,6 +667,13 @@
 		return '📊';
 	}
 
+	// Get sport activity label from tag value
+	function getSportLabel(tag: string | null): string | null {
+		if (!tag) return null;
+		const activity = SPORT_ACTIVITIES.find(a => a.value === tag);
+		return activity?.label ?? tag;
+	}
+
 	function formatTimeAgo(dateStr: string): string {
 		const date = new Date(dateStr);
 		const now = new Date();
@@ -1234,8 +1242,12 @@
 										{#each personHistory.get(row.personId) || [] as entry}
 											<div class="flex items-center gap-2 text-sm">
 												<span class="text-gray-400">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-												<span>{getMetricEmoji(entry.metric_name)}</span>
-												<span class="text-gray-600 dark:text-gray-300">{entry.metric_name}</span>
+												{#if entry.tags}
+													<span class="text-gray-600 dark:text-gray-300">{getSportLabel(entry.tags)}</span>
+												{:else}
+													<span>{getMetricEmoji(entry.metric_name)}</span>
+													<span class="text-gray-600 dark:text-gray-300">{entry.metric_name}</span>
+												{/if}
 												{#if entry.notes}
 													<span class="text-amber-500 text-xs">📝</span>
 												{/if}
@@ -1358,8 +1370,12 @@
 														{#each personHistory.get(row.personId) || [] as entry}
 															<div class="bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm shadow-sm flex items-center gap-2">
 																<span class="text-gray-400">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-																<span>{getMetricEmoji(entry.metric_name)}</span>
-																<span class="text-gray-600 dark:text-gray-300">{entry.metric_name}</span>
+																{#if entry.tags}
+																	<span class="text-gray-600 dark:text-gray-300">{getSportLabel(entry.tags)}</span>
+																{:else}
+																	<span>{getMetricEmoji(entry.metric_name)}</span>
+																	<span class="text-gray-600 dark:text-gray-300">{entry.metric_name}</span>
+																{/if}
 																{#if entry.notes}
 																	<span class="text-amber-500" title={entry.notes}>📝</span>
 																{/if}

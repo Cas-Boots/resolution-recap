@@ -105,6 +105,7 @@ export interface Translations {
 		boxing: string;
 		martialArts: string;
 		dance: string;
+		hyrox: string;
 		other: string;
 	};
 	
@@ -262,6 +263,7 @@ export const translations: Record<Locale, Translations> = {
 			boxing: 'Boxing',
 			martialArts: 'Martial Arts',
 			dance: 'Dance',
+			hyrox: 'Hyrox',
 			other: 'Other',
 		},
 		
@@ -414,6 +416,7 @@ export const translations: Record<Locale, Translations> = {
 			boxing: 'Boksen',
 			martialArts: 'Vechtsporten',
 			dance: 'Dansen',
+			hyrox: 'Hyrox',
 			other: 'Anders',
 		},
 		

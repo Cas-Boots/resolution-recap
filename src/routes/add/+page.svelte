@@ -41,6 +41,7 @@
 		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
 		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
 		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
+		{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
 		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
 	]);
 
