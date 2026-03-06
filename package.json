@@ -9,7 +9,14 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"countries:check": "node ./scripts/check-countries.mjs",
+		"docker:local:up": "docker compose -f docker-compose.local.yml up --build",
+		"docker:local:down": "docker compose -f docker-compose.local.yml down",
+		"docker:local:setup": "docker compose -f docker-compose.local.yml up --build -d && sh -c 'until curl -fsS http://localhost:5173/ >/dev/null; do sleep 1; done' && docker compose -f docker-compose.local.yml exec -T app node ./scripts/seed-sqlite.mjs",
+		"docker:local:reseed": "docker compose -f docker-compose.local.yml down && npm run db:local:reset && docker compose -f docker-compose.local.yml up -d && sh -c 'until curl -fsS http://localhost:5173/ >/dev/null; do sleep 1; done' && docker compose -f docker-compose.local.yml exec -T app node ./scripts/seed-sqlite.mjs",
+		"db:local:reset": "rm -f ./data/local-test.db ./data/local-test.db-shm ./data/local-test.db-wal",
+		"seed:local": "node ./scripts/seed-sqlite.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
@@ -27,8 +34,8 @@
 	"dependencies": {
 		"@types/leaflet": "^1.9.21",
 		"better-sqlite3": "^12.5.0",
-		"country-flag-emoji-json": "^2.0.0",
 		"i18n-iso-countries": "^7.14.0",
-		"leaflet": "^1.9.4"
+		"leaflet": "^1.9.4",
+		"world-countries": "^5.1.0"
 	}
 }

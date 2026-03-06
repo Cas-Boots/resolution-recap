@@ -56,60 +56,80 @@
 		if (!confirm(`Delete ${selectedIds.size} entries? They can be restored later.`)) return;
 
 		loading = true;
-		
-		await fetch(`${base}/api/entries`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ ids: Array.from(selectedIds) })
-		});
-		
-		selectedIds = new Set();
-		loading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/entries`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids: Array.from(selectedIds) })
+			});
+
+			if (res.ok) {
+				selectedIds = new Set();
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function undeleteSelected() {
 		if (selectedDeletedIds.size === 0) return;
 
 		loading = true;
-		
-		await fetch(`${base}/api/entries`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ ids: Array.from(selectedDeletedIds), action: 'undelete' })
-		});
-		
-		selectedDeletedIds = new Set();
-		loading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/entries`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids: Array.from(selectedDeletedIds), action: 'undelete' })
+			});
+
+			if (res.ok) {
+				selectedDeletedIds = new Set();
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function deleteOne(id: number) {
 		if (!confirm('Delete this entry? It can be restored later.')) return;
 
 		loading = true;
-		
-		await fetch(`${base}/api/entries`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		
-		loading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/entries`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+
+			if (res.ok) {
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function undeleteOne(id: number) {
 		loading = true;
-		
-		await fetch(`${base}/api/entries`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, action: 'undelete' })
-		});
-		
-		loading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/entries`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, action: 'undelete' })
+			});
+
+			if (res.ok) {
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
 	}
 
 	function startEdit(entry: { id: number; person_id: number; metric_id: number; entry_date: string }) {
@@ -125,16 +145,28 @@
 		if (!editingEntry) return;
 
 		loading = true;
-		
-		await fetch(`${base}/api/entries`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(editingEntry)
-		});
-		
+
+		try {
+			const res = await fetch(`${base}/api/entries`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(editingEntry)
+			});
+
+			if (res.ok) {
+				editingEntry = null;
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function deleteEditingEntry() {
+		if (!editingEntry) return;
+		const id = editingEntry.id;
 		editingEntry = null;
-		loading = false;
-		await invalidateAll();
+		await deleteOne(id);
 	}
 
 	function formatDate(dateStr: string): string {
@@ -179,7 +211,16 @@
 <div class="space-y-6">
 	<div class="bg-white rounded-2xl shadow-lg p-6">
 		<h1 class="text-2xl font-bold text-gray-800">📝 Entry Management</h1>
-		<p class="text-gray-500 mt-1">Admin-only: Manage entries with full audit history (notes hidden)</p>
+		<p class="text-gray-500 mt-1">Admin-only: Change participant activities, switch an activity to another one, or delete entries (notes hidden)</p>
+	</div>
+
+	<div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-indigo-900">
+		<p class="font-semibold mb-2">How to manage activities (admin)</p>
+		<ul class="list-disc pl-5 space-y-1">
+			<li>Open <strong>Active</strong>, then click <strong>Switch Activity</strong> on a row to change the activity, person, or date.</li>
+			<li>Click <strong>Delete</strong> on a row to remove an activity.</li>
+			<li>Use <strong>Deleted</strong> to restore removed activities anytime.</li>
+		</ul>
 	</div>
 
 	{#if !data.season}
@@ -245,9 +286,23 @@
 		{#if editingEntry}
 			<div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
 				<div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-					<h2 class="text-lg font-bold text-gray-800 mb-4">Edit Entry</h2>
+					<h2 class="text-lg font-bold text-gray-800 mb-1">Switch Activity</h2>
+					<p class="text-sm text-gray-500 mb-4">Change activity, person, or date for this entry.</p>
 					
 					<div class="space-y-4">
+						<div>
+							<label for="editMetric" class="block text-sm font-medium text-gray-700 mb-1">Activity</label>
+							<select
+								id="editMetric"
+								bind:value={editingEntry.metricId}
+								class="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 focus:outline-none"
+							>
+								{#each data.metrics || [] as metric}
+									<option value={metric.id}>{metric.name}</option>
+								{/each}
+							</select>
+						</div>
+
 						<div>
 							<label for="editPerson" class="block text-sm font-medium text-gray-700 mb-1">Person</label>
 							<select
@@ -257,19 +312,6 @@
 							>
 								{#each data.people || [] as person}
 									<option value={person.id}>{person.name}</option>
-								{/each}
-							</select>
-						</div>
-
-						<div>
-							<label for="editMetric" class="block text-sm font-medium text-gray-700 mb-1">Metric</label>
-							<select
-								id="editMetric"
-								bind:value={editingEntry.metricId}
-								class="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 focus:outline-none"
-							>
-								{#each data.metrics || [] as metric}
-									<option value={metric.id}>{metric.name}</option>
 								{/each}
 							</select>
 						</div>
@@ -287,6 +329,13 @@
 
 					<div class="flex gap-3 mt-6">
 						<button
+							onclick={deleteEditingEntry}
+							disabled={loading}
+							class="py-2 px-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
+						>
+							Delete
+						</button>
+						<button
 							onclick={() => editingEntry = null}
 							class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
 						>
@@ -297,7 +346,7 @@
 							disabled={loading}
 							class="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
 						>
-							Save
+							Save Changes
 						</button>
 					</div>
 				</div>
@@ -333,7 +382,7 @@
 									<th class="px-3 py-2 text-left text-gray-700">ID</th>
 									<th class="px-3 py-2 text-left text-gray-700">Date</th>
 									<th class="px-3 py-2 text-left text-gray-700">Person</th>
-									<th class="px-3 py-2 text-left text-gray-700">Metric</th>
+									<th class="px-3 py-2 text-left text-gray-700">Activity</th>
 									<th class="px-3 py-2 text-right text-gray-700">Actions</th>
 								</tr>
 							</thead>
@@ -357,7 +406,7 @@
 												onclick={() => startEdit(entry)}
 												class="px-2 py-1 text-indigo-600 hover:bg-indigo-100 rounded text-xs"
 											>
-												Edit
+												Switch Activity
 											</button>
 											<button
 												onclick={() => deleteOne(entry.id)}

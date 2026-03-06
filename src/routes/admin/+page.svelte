@@ -50,15 +50,20 @@
 
 	async function setActiveSeason(id: number) {
 		loading = true;
-		
-		await fetch(`${base}/api/seasons`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		
-		loading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/seasons`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+
+			if (res.ok) {
+				await invalidateAll();
+			}
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function changePin(type: 'tracker' | 'admin') {
@@ -108,6 +113,18 @@
 	<div class="bg-white rounded-2xl shadow-lg p-6">
 		<h1 class="text-2xl font-bold text-gray-800">📅 Season Management</h1>
 		<p class="text-gray-500 mt-1">Admin-only: Switch seasons and create new ones</p>
+		<a
+			href="{base}/admin/entries"
+			class="inline-flex items-center gap-2 mt-3 px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 transition-colors"
+		>
+			📝 Go to Entry Management
+		</a>
+		<a
+			href="{base}/admin/telemetry"
+			class="inline-flex items-center gap-2 mt-3 ml-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 transition-colors"
+		>
+			📈 Refresh Telemetry
+		</a>
 	</div>
 
 	<!-- Current Season -->

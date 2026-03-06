@@ -36,6 +36,50 @@ A mobile-friendly web app to track friend group metrics (sporting, cakes eaten, 
    npm run dev
    ```
 
+### Local Docker Testing (with Dummy Data)
+
+Use this when you want to test in Docker with hot-reload and a rich local dataset.
+
+Quick start (one command):
+
+```bash
+npm run docker:local:setup
+```
+
+This starts Docker in detached mode, waits for the app to respond, then seeds local dummy data.
+Seeding for this command runs inside the container to avoid host file permission issues.
+
+Manual flow:
+
+1. Start the local Docker stack:
+   ```bash
+   npm run docker:local:up
+   ```
+2. Seed deterministic local test data:
+   ```bash
+   npm run seed:local
+   ```
+3. Open the app at `http://localhost:5173`
+
+Default local testing PINs:
+- Tracker: `1111`
+- Admin: `9999`
+
+Optional reset (fresh local test DB):
+```bash
+npm run db:local:reset
+```
+
+Fast reset + reseed (without rebuild):
+```bash
+npm run docker:local:reseed
+```
+This reseed flow also runs seeding inside the container.
+
+Notes:
+- Local Docker uses `./data/local-test.db` so production data paths are not touched.
+- Keep only one writer against this SQLite DB at a time.
+
 ### Deployment with Dokploy
 
 1. Create a new Application in Dokploy

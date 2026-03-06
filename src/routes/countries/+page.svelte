@@ -4,7 +4,6 @@
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { COUNTRIES, getSortedCountries, getCountry } from '$lib/countries';
 	import { getRank, getMedal } from '$lib/ranking';
 	import { t } from '$lib/stores/locale';
 	import type { Translations } from '$lib/i18n';
@@ -30,9 +29,19 @@
 	let mapContainer: HTMLDivElement | null = $state(null);
 	let map: any = $state(null);
 
+	const availableCountries = $derived(data.availableCountries || []);
+
+	const availableCountriesMap = $derived.by(() => {
+		const map = new Map<string, { code: string; name: string; flag: string; lat: number; lng: number }>();
+		for (const country of availableCountries) {
+			map.set(country.code, country);
+		}
+		return map;
+	});
+
 	// Filtered countries for selection based on search
 	const filteredCountries = $derived.by(() => {
-		const all = getSortedCountries();
+		const all = availableCountries;
 		if (!countrySearch.trim()) return all;
 		const query = countrySearch.toLowerCase();
 		return all.filter(c => 
@@ -115,9 +124,16 @@
 		markersLayer.clearLayers();
 		
 		// Add markers for visited countries
-		for (const [code, countryInfo] of Object.entries(COUNTRIES)) {
-			const visited = countries.get(code);
+		for (const [code, visited] of countries.entries()) {
+			const countryInfo = availableCountriesMap.get(code);
+			if (!countryInfo) {
+				continue;
+			}
 			if (visited) {
+				if (!Number.isFinite(countryInfo.lat) || !Number.isFinite(countryInfo.lng)) {
+					continue;
+				}
+
 				const visitorCount = visited.visitors.length;
 				const color = getHeatColor(visitorCount);
 				const radius = getDotSize(visitorCount);
@@ -164,21 +180,24 @@
 
 	async function toggleCountry(personId: number, countryCode: string, countryName: string, isVisited: boolean) {
 		countryLoading = true;
-		
-		if (isVisited) {
-			await fetch(`${base}/api/countries?personId=${personId}&countryCode=${countryCode}`, {
-				method: 'DELETE'
-			});
-		} else {
-			await fetch(`${base}/api/countries`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ personId, countryCode, countryName })
-			});
+
+		try {
+			if (isVisited) {
+				await fetch(`${base}/api/countries?personId=${personId}&countryCode=${countryCode}`, {
+					method: 'DELETE'
+				});
+			} else {
+				await fetch(`${base}/api/countries`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ personId, countryCode, countryName })
+				});
+			}
+
+			await invalidateAll();
+		} finally {
+			countryLoading = false;
 		}
-		
-		countryLoading = false;
-		await invalidateAll();
 	}
 
 	function hasVisitedCountry(personId: number, countryCode: string): boolean {
@@ -384,7 +403,7 @@
 							</div>
 							
 							<p class="text-xs text-gray-500">
-								Showing {filteredCountries.length} of {getSortedCountries().length} countries
+								Showing {filteredCountries.length} of {availableCountries.length} countries
 							</p>
 						</div>
 					{/if}

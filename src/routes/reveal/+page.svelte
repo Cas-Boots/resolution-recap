@@ -92,6 +92,14 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 text-white">
+	{#if !data.authorized}
+		<div class="flex items-center justify-center h-[80vh]">
+			<div class="text-center text-white/70">
+				<div class="text-6xl mb-4">🔒</div>
+				<p>Please log in to view the reveal.</p>
+			</div>
+		</div>
+	{:else}
 	<!-- Header -->
 	<div class="p-4 flex items-center justify-between bg-black/20">
 		<a href="{base}/stats" class="text-white/70 hover:text-white flex items-center gap-2">
@@ -296,6 +304,7 @@
 				{/if}
 			</div>
 		{/if}
+	{/if}
 	{/if}
 </div>
 

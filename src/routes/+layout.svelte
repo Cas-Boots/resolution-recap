@@ -2,6 +2,7 @@
 	import '../app.css';
 	import PinOverlay from '$lib/components/PinOverlay.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import CelebrationToaster from '$lib/components/CelebrationToaster.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
@@ -18,6 +19,11 @@
 	const initialRole = data.role;
 	let role = $state<'tracker' | 'admin' | undefined>(initialRole);
 	let isNavigating = $state(false);
+	let roleRedirectInFlight = $state(false);
+
+	$effect(() => {
+		role = data.role;
+	});
 
 	// Subscribe to navigating store
 	$effect(() => {
@@ -29,29 +35,44 @@
 
 	function handleAuthSuccess(newRole: 'tracker' | 'admin') {
 		role = newRole;
-		// Redirect based on role
-		if (newRole === 'admin') {
-			goto(`${base}/admin`);
-		} else {
-			goto(`${base}/`);
-		}
+		void ensureRolePath(newRole, page.url.pathname);
 	}
 
 	function handleLogout() {
 		role = undefined;
 	}
 
+	async function ensureRolePath(currentRole: 'tracker' | 'admin', currentPath: string): Promise<void> {
+		if (roleRedirectInFlight) return;
+
+		const adminPath = `${base}/admin`;
+		const trackerPath = `${base}/`;
+		const isAdminPath = currentPath === adminPath || currentPath.startsWith(`${adminPath}/`);
+
+		if (currentRole === 'admin' && !isAdminPath) {
+			roleRedirectInFlight = true;
+			try {
+				await goto(adminPath);
+			} finally {
+				roleRedirectInFlight = false;
+			}
+			return;
+		}
+
+		if (currentRole === 'tracker' && isAdminPath) {
+			roleRedirectInFlight = true;
+			try {
+				await goto(trackerPath);
+			} finally {
+				roleRedirectInFlight = false;
+			}
+		}
+	}
+
 	// Check if current path is allowed for role
 	$effect(() => {
 		if (role) {
-			const path = page.url.pathname;
-			const isAdminPath = path.includes('/admin');
-			
-			if (role === 'admin' && !isAdminPath) {
-				goto(`${base}/admin`);
-			} else if (role === 'tracker' && isAdminPath) {
-				goto(`${base}/`);
-			}
+			void ensureRolePath(role, page.url.pathname);
 		}
 	});
 </script>
@@ -72,6 +93,7 @@
 		{/if}
 		
 		<Navigation {role} onLogout={handleLogout} />
+		<CelebrationToaster />
 		<main class="flex-1 p-4 max-w-4xl mx-auto w-full pb-20 md:pb-4">
 			{@render children()}
 		</main>

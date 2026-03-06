@@ -21,6 +21,10 @@ export const pendingEntriesCount = writable(0);
 export const isOnline = writable(true);
 
 let db: IDBDatabase | null = null;
+let syncInFlight: Promise<{ synced: number; failed: number }> | null = null;
+let listenersInitialized = false;
+let onlineHandler: (() => void) | null = null;
+let offlineHandler: (() => void) | null = null;
 
 // Initialize IndexedDB
 async function initDB(): Promise<IDBDatabase> {
@@ -112,62 +116,90 @@ async function updatePendingCount(): Promise<void> {
 // Sync pending entries to server
 export async function syncPendingEntries(): Promise<{ synced: number; failed: number }> {
 	if (!browser || !navigator.onLine) return { synced: 0, failed: 0 };
-	
-	const entries = await getPendingEntries();
-	let synced = 0;
-	let failed = 0;
-	
-	for (const entry of entries) {
-		try {
-			const res = await fetch(`${base}/api/entries`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					personId: entry.personId,
-					metricId: entry.metricId,
-					entryDate: entry.entryDate,
-					notes: entry.notes,
-					tags: entry.tags
-				})
-			});
-			
-			if (res.ok) {
-				await removeFromQueue(entry.id);
-				synced++;
-			} else {
+
+	if (syncInFlight) return syncInFlight;
+
+	syncInFlight = (async () => {
+		const entries = await getPendingEntries();
+		let synced = 0;
+		let failed = 0;
+
+		for (const entry of entries) {
+			try {
+				const res = await fetch(`${base}/api/entries`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						personId: entry.personId,
+						metricId: entry.metricId,
+						entryDate: entry.entryDate,
+						notes: entry.notes,
+						tags: entry.tags
+					})
+				});
+
+				if (res.ok) {
+					await removeFromQueue(entry.id);
+					synced++;
+				} else {
+					failed++;
+				}
+			} catch {
 				failed++;
 			}
-		} catch {
-			failed++;
 		}
-	}
-	
-	return { synced, failed };
+
+		return { synced, failed };
+	})().finally(() => {
+		syncInFlight = null;
+	});
+
+	return syncInFlight;
 }
 
 // Initialize online/offline listeners
-export function initOfflineSupport(): void {
+export function initOfflineSupport(): (() => void) | void {
 	if (!browser) return;
+	if (listenersInitialized) return;
+	listenersInitialized = true;
 	
 	// Set initial online status
 	isOnline.set(navigator.onLine);
 	
 	// Listen for online/offline events
-	window.addEventListener('online', async () => {
+	onlineHandler = async () => {
 		isOnline.set(true);
 		// Auto-sync when coming back online
 		const result = await syncPendingEntries();
 		if (result.synced > 0) {
 			console.log(`Synced ${result.synced} offline entries`);
 		}
-	});
-	
-	window.addEventListener('offline', () => {
+
+		window.dispatchEvent(
+			new CustomEvent('offline-sync-complete', {
+				detail: result
+			})
+		);
+	};
+
+	offlineHandler = () => {
 		isOnline.set(false);
-	});
+	};
+
+	window.addEventListener('online', onlineHandler);
+	window.addEventListener('offline', offlineHandler);
 	
 	// Initialize pending count
 	updatePendingCount();
+
+	return () => {
+		if (!onlineHandler || !offlineHandler) return;
+		window.removeEventListener('online', onlineHandler);
+		window.removeEventListener('offline', offlineHandler);
+		onlineHandler = null;
+		offlineHandler = null;
+		listenersInitialized = false;
+	};
 }
 
 // Create entry with offline fallback

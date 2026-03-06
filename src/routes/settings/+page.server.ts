@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getAllPeople, getAllMetrics, getActiveSeason, getGoalsForSeason, getCountriesVisitedForSeason } from '$lib/server/db';
+import { getSortedCountries } from '$lib/countries';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.role !== 'tracker') {
@@ -11,6 +12,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const season = getActiveSeason();
 	const goals = season ? getGoalsForSeason(season.id) : [];
 	const countriesVisited = season ? getCountriesVisitedForSeason(season.id) : [];
+	const availableCountries = getSortedCountries();
 
 	return {
 		authorized: true,
@@ -18,6 +20,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		metrics,
 		season,
 		goals,
-		countriesVisited
+		countriesVisited,
+		availableCountries
 	};
 };

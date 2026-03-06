@@ -1,5 +1,4 @@
-// Complete list of countries with ISO codes, names, flags, and coordinates
-// This uses standard ISO 3166-1 alpha-2 codes
+import worldCountries from 'world-countries';
 
 export interface CountryInfo {
 	code: string;
@@ -9,257 +8,42 @@ export interface CountryInfo {
 	lng: number;
 }
 
-// Comprehensive list of all countries with their coordinates (capital/center point)
-export const COUNTRIES: Record<string, CountryInfo> = {
-	'AF': { code: 'AF', name: 'Afghanistan', flag: '🇦🇫', lat: 33.9, lng: 67.7 },
-	'AL': { code: 'AL', name: 'Albania', flag: '🇦🇱', lat: 41.2, lng: 20.2 },
-	'DZ': { code: 'DZ', name: 'Algeria', flag: '🇩🇿', lat: 28.0, lng: 1.7 },
-	'AD': { code: 'AD', name: 'Andorra', flag: '🇦🇩', lat: 42.5, lng: 1.5 },
-	'AO': { code: 'AO', name: 'Angola', flag: '🇦🇴', lat: -11.2, lng: 17.9 },
-	'AG': { code: 'AG', name: 'Antigua and Barbuda', flag: '🇦🇬', lat: 17.1, lng: -61.8 },
-	'AR': { code: 'AR', name: 'Argentina', flag: '🇦🇷', lat: -38.4, lng: -63.6 },
-	'AM': { code: 'AM', name: 'Armenia', flag: '🇦🇲', lat: 40.1, lng: 45.0 },
-	'AU': { code: 'AU', name: 'Australia', flag: '🇦🇺', lat: -25.3, lng: 133.8 },
-	'AT': { code: 'AT', name: 'Austria', flag: '🇦🇹', lat: 47.5, lng: 14.6 },
-	'AZ': { code: 'AZ', name: 'Azerbaijan', flag: '🇦🇿', lat: 40.1, lng: 47.6 },
-	'BS': { code: 'BS', name: 'Bahamas', flag: '🇧🇸', lat: 25.0, lng: -77.4 },
-	'BH': { code: 'BH', name: 'Bahrain', flag: '🇧🇭', lat: 26.0, lng: 50.6 },
-	'BD': { code: 'BD', name: 'Bangladesh', flag: '🇧🇩', lat: 23.7, lng: 90.4 },
-	'BB': { code: 'BB', name: 'Barbados', flag: '🇧🇧', lat: 13.2, lng: -59.5 },
-	'BY': { code: 'BY', name: 'Belarus', flag: '🇧🇾', lat: 53.7, lng: 27.9 },
-	'BE': { code: 'BE', name: 'Belgium', flag: '🇧🇪', lat: 50.8, lng: 4.4 },
-	'BZ': { code: 'BZ', name: 'Belize', flag: '🇧🇿', lat: 17.2, lng: -88.5 },
-	'BJ': { code: 'BJ', name: 'Benin', flag: '🇧🇯', lat: 9.3, lng: 2.3 },
-	'BT': { code: 'BT', name: 'Bhutan', flag: '🇧🇹', lat: 27.5, lng: 90.4 },
-	'BO': { code: 'BO', name: 'Bolivia', flag: '🇧🇴', lat: -16.3, lng: -63.6 },
-	'BA': { code: 'BA', name: 'Bosnia and Herzegovina', flag: '🇧🇦', lat: 43.9, lng: 17.7 },
-	'BW': { code: 'BW', name: 'Botswana', flag: '🇧🇼', lat: -22.3, lng: 24.7 },
-	'BR': { code: 'BR', name: 'Brazil', flag: '🇧🇷', lat: -14.2, lng: -51.9 },
-	'BN': { code: 'BN', name: 'Brunei', flag: '🇧🇳', lat: 4.5, lng: 114.7 },
-	'BG': { code: 'BG', name: 'Bulgaria', flag: '🇧🇬', lat: 42.7, lng: 25.5 },
-	'BF': { code: 'BF', name: 'Burkina Faso', flag: '🇧🇫', lat: 12.2, lng: -1.6 },
-	'BI': { code: 'BI', name: 'Burundi', flag: '🇧🇮', lat: -3.4, lng: 29.9 },
-	'CV': { code: 'CV', name: 'Cabo Verde', flag: '🇨🇻', lat: 16.0, lng: -24.0 },
-	'KH': { code: 'KH', name: 'Cambodia', flag: '🇰🇭', lat: 12.6, lng: 105.0 },
-	'CM': { code: 'CM', name: 'Cameroon', flag: '🇨🇲', lat: 7.4, lng: 12.4 },
-	'CA': { code: 'CA', name: 'Canada', flag: '🇨🇦', lat: 56.1, lng: -106.3 },
-	'CF': { code: 'CF', name: 'Central African Republic', flag: '🇨🇫', lat: 6.6, lng: 20.9 },
-	'TD': { code: 'TD', name: 'Chad', flag: '🇹🇩', lat: 15.5, lng: 18.7 },
-	'CL': { code: 'CL', name: 'Chile', flag: '🇨🇱', lat: -35.7, lng: -71.5 },
-	'CN': { code: 'CN', name: 'China', flag: '🇨🇳', lat: 35.9, lng: 104.2 },
-	'CO': { code: 'CO', name: 'Colombia', flag: '🇨🇴', lat: 4.6, lng: -74.3 },
-	'KM': { code: 'KM', name: 'Comoros', flag: '🇰🇲', lat: -11.6, lng: 43.3 },
-	'CG': { code: 'CG', name: 'Congo', flag: '🇨🇬', lat: -0.2, lng: 15.8 },
-	'CD': { code: 'CD', name: 'Congo (DRC)', flag: '🇨🇩', lat: -4.0, lng: 21.8 },
-	'CR': { code: 'CR', name: 'Costa Rica', flag: '🇨🇷', lat: 9.7, lng: -83.8 },
-	'HR': { code: 'HR', name: 'Croatia', flag: '🇭🇷', lat: 45.1, lng: 15.2 },
-	'CU': { code: 'CU', name: 'Cuba', flag: '🇨🇺', lat: 21.5, lng: -77.8 },
-	'CY': { code: 'CY', name: 'Cyprus', flag: '🇨🇾', lat: 35.1, lng: 33.4 },
-	'CZ': { code: 'CZ', name: 'Czech Republic', flag: '🇨🇿', lat: 49.8, lng: 15.5 },
-	'CI': { code: 'CI', name: "Côte d'Ivoire", flag: '🇨🇮', lat: 7.5, lng: -5.5 },
-	'DK': { code: 'DK', name: 'Denmark', flag: '🇩🇰', lat: 56.3, lng: 9.5 },
-	'DJ': { code: 'DJ', name: 'Djibouti', flag: '🇩🇯', lat: 11.8, lng: 42.6 },
-	'DM': { code: 'DM', name: 'Dominica', flag: '🇩🇲', lat: 15.4, lng: -61.4 },
-	'DO': { code: 'DO', name: 'Dominican Republic', flag: '🇩🇴', lat: 18.7, lng: -70.2 },
-	'EC': { code: 'EC', name: 'Ecuador', flag: '🇪🇨', lat: -1.8, lng: -78.2 },
-	'EG': { code: 'EG', name: 'Egypt', flag: '🇪🇬', lat: 26.8, lng: 30.8 },
-	'SV': { code: 'SV', name: 'El Salvador', flag: '🇸🇻', lat: 13.8, lng: -88.9 },
-	'GQ': { code: 'GQ', name: 'Equatorial Guinea', flag: '🇬🇶', lat: 1.7, lng: 10.3 },
-	'ER': { code: 'ER', name: 'Eritrea', flag: '🇪🇷', lat: 15.2, lng: 39.8 },
-	'EE': { code: 'EE', name: 'Estonia', flag: '🇪🇪', lat: 58.6, lng: 25.0 },
-	'SZ': { code: 'SZ', name: 'Eswatini', flag: '🇸🇿', lat: -26.5, lng: 31.5 },
-	'ET': { code: 'ET', name: 'Ethiopia', flag: '🇪🇹', lat: 9.1, lng: 40.5 },
-	'FJ': { code: 'FJ', name: 'Fiji', flag: '🇫🇯', lat: -17.7, lng: 178.1 },
-	'FI': { code: 'FI', name: 'Finland', flag: '🇫🇮', lat: 61.9, lng: 25.7 },
-	'FR': { code: 'FR', name: 'France', flag: '🇫🇷', lat: 46.2, lng: 2.2 },
-	'GA': { code: 'GA', name: 'Gabon', flag: '🇬🇦', lat: -0.8, lng: 11.6 },
-	'GM': { code: 'GM', name: 'Gambia', flag: '🇬🇲', lat: 13.4, lng: -15.3 },
-	'GE': { code: 'GE', name: 'Georgia', flag: '🇬🇪', lat: 42.3, lng: 43.4 },
-	'DE': { code: 'DE', name: 'Germany', flag: '🇩🇪', lat: 51.2, lng: 10.5 },
-	'GH': { code: 'GH', name: 'Ghana', flag: '🇬🇭', lat: 7.9, lng: -1.0 },
-	'GR': { code: 'GR', name: 'Greece', flag: '🇬🇷', lat: 39.1, lng: 21.8 },
-	'GD': { code: 'GD', name: 'Grenada', flag: '🇬🇩', lat: 12.1, lng: -61.7 },
-	'GT': { code: 'GT', name: 'Guatemala', flag: '🇬🇹', lat: 15.8, lng: -90.2 },
-	'GN': { code: 'GN', name: 'Guinea', flag: '🇬🇳', lat: 9.9, lng: -9.7 },
-	'GW': { code: 'GW', name: 'Guinea-Bissau', flag: '🇬🇼', lat: 11.8, lng: -15.2 },
-	'GY': { code: 'GY', name: 'Guyana', flag: '🇬🇾', lat: 4.9, lng: -58.9 },
-	'HT': { code: 'HT', name: 'Haiti', flag: '🇭🇹', lat: 18.9, lng: -72.3 },
-	'HN': { code: 'HN', name: 'Honduras', flag: '🇭🇳', lat: 15.2, lng: -86.2 },
-	'HU': { code: 'HU', name: 'Hungary', flag: '🇭🇺', lat: 47.2, lng: 19.5 },
-	'IS': { code: 'IS', name: 'Iceland', flag: '🇮🇸', lat: 64.9, lng: -19.0 },
-	'IN': { code: 'IN', name: 'India', flag: '🇮🇳', lat: 20.6, lng: 79.0 },
-	'ID': { code: 'ID', name: 'Indonesia', flag: '🇮🇩', lat: -0.8, lng: 113.9 },
-	'IR': { code: 'IR', name: 'Iran', flag: '🇮🇷', lat: 32.4, lng: 53.7 },
-	'IQ': { code: 'IQ', name: 'Iraq', flag: '🇮🇶', lat: 33.2, lng: 43.7 },
-	'IE': { code: 'IE', name: 'Ireland', flag: '🇮🇪', lat: 53.1, lng: -8.0 },
-	'IL': { code: 'IL', name: 'Israel', flag: '🇮🇱', lat: 31.0, lng: 34.9 },
-	'IT': { code: 'IT', name: 'Italy', flag: '🇮🇹', lat: 41.9, lng: 12.6 },
-	'JM': { code: 'JM', name: 'Jamaica', flag: '🇯🇲', lat: 18.1, lng: -77.3 },
-	'JP': { code: 'JP', name: 'Japan', flag: '🇯🇵', lat: 36.2, lng: 138.3 },
-	'JO': { code: 'JO', name: 'Jordan', flag: '🇯🇴', lat: 30.6, lng: 36.2 },
-	'KZ': { code: 'KZ', name: 'Kazakhstan', flag: '🇰🇿', lat: 48.0, lng: 67.0 },
-	'KE': { code: 'KE', name: 'Kenya', flag: '🇰🇪', lat: -0.0, lng: 37.9 },
-	'KI': { code: 'KI', name: 'Kiribati', flag: '🇰🇮', lat: -3.4, lng: -168.7 },
-	'KP': { code: 'KP', name: 'North Korea', flag: '🇰🇵', lat: 40.3, lng: 127.5 },
-	'KR': { code: 'KR', name: 'South Korea', flag: '🇰🇷', lat: 35.9, lng: 127.8 },
-	'KW': { code: 'KW', name: 'Kuwait', flag: '🇰🇼', lat: 29.3, lng: 47.5 },
-	'KG': { code: 'KG', name: 'Kyrgyzstan', flag: '🇰🇬', lat: 41.2, lng: 74.8 },
-	'LA': { code: 'LA', name: 'Laos', flag: '🇱🇦', lat: 19.9, lng: 102.5 },
-	'LV': { code: 'LV', name: 'Latvia', flag: '🇱🇻', lat: 56.9, lng: 24.6 },
-	'LB': { code: 'LB', name: 'Lebanon', flag: '🇱🇧', lat: 33.9, lng: 35.9 },
-	'LS': { code: 'LS', name: 'Lesotho', flag: '🇱🇸', lat: -29.6, lng: 28.2 },
-	'LR': { code: 'LR', name: 'Liberia', flag: '🇱🇷', lat: 6.4, lng: -9.4 },
-	'LY': { code: 'LY', name: 'Libya', flag: '🇱🇾', lat: 26.3, lng: 17.2 },
-	'LI': { code: 'LI', name: 'Liechtenstein', flag: '🇱🇮', lat: 47.2, lng: 9.6 },
-	'LT': { code: 'LT', name: 'Lithuania', flag: '🇱🇹', lat: 55.2, lng: 23.9 },
-	'LU': { code: 'LU', name: 'Luxembourg', flag: '🇱🇺', lat: 49.8, lng: 6.1 },
-	'MG': { code: 'MG', name: 'Madagascar', flag: '🇲🇬', lat: -18.8, lng: 46.9 },
-	'MW': { code: 'MW', name: 'Malawi', flag: '🇲🇼', lat: -13.3, lng: 34.3 },
-	'MY': { code: 'MY', name: 'Malaysia', flag: '🇲🇾', lat: 4.2, lng: 101.9 },
-	'MV': { code: 'MV', name: 'Maldives', flag: '🇲🇻', lat: 3.2, lng: 73.2 },
-	'ML': { code: 'ML', name: 'Mali', flag: '🇲🇱', lat: 17.6, lng: -4.0 },
-	'MT': { code: 'MT', name: 'Malta', flag: '🇲🇹', lat: 35.9, lng: 14.5 },
-	'MH': { code: 'MH', name: 'Marshall Islands', flag: '🇲🇭', lat: 7.1, lng: 171.2 },
-	'MR': { code: 'MR', name: 'Mauritania', flag: '🇲🇷', lat: 21.0, lng: -10.9 },
-	'MU': { code: 'MU', name: 'Mauritius', flag: '🇲🇺', lat: -20.3, lng: 57.6 },
-	'MX': { code: 'MX', name: 'Mexico', flag: '🇲🇽', lat: 23.6, lng: -102.6 },
-	'FM': { code: 'FM', name: 'Micronesia', flag: '🇫🇲', lat: 7.4, lng: 150.6 },
-	'MD': { code: 'MD', name: 'Moldova', flag: '🇲🇩', lat: 47.4, lng: 28.4 },
-	'MC': { code: 'MC', name: 'Monaco', flag: '🇲🇨', lat: 43.7, lng: 7.4 },
-	'MN': { code: 'MN', name: 'Mongolia', flag: '🇲🇳', lat: 46.9, lng: 103.8 },
-	'ME': { code: 'ME', name: 'Montenegro', flag: '🇲🇪', lat: 42.7, lng: 19.4 },
-	'MA': { code: 'MA', name: 'Morocco', flag: '🇲🇦', lat: 31.8, lng: -7.1 },
-	'MZ': { code: 'MZ', name: 'Mozambique', flag: '🇲🇿', lat: -18.7, lng: 35.5 },
-	'MM': { code: 'MM', name: 'Myanmar', flag: '🇲🇲', lat: 21.9, lng: 95.9 },
-	'NA': { code: 'NA', name: 'Namibia', flag: '🇳🇦', lat: -22.6, lng: 17.1 },
-	'NR': { code: 'NR', name: 'Nauru', flag: '🇳🇷', lat: -0.5, lng: 166.9 },
-	'NP': { code: 'NP', name: 'Nepal', flag: '🇳🇵', lat: 28.4, lng: 84.1 },
-	'NL': { code: 'NL', name: 'Netherlands', flag: '🇳🇱', lat: 52.1, lng: 5.3 },
-	'NZ': { code: 'NZ', name: 'New Zealand', flag: '🇳🇿', lat: -40.9, lng: 174.9 },
-	'NI': { code: 'NI', name: 'Nicaragua', flag: '🇳🇮', lat: 12.9, lng: -85.2 },
-	'NE': { code: 'NE', name: 'Niger', flag: '🇳🇪', lat: 17.6, lng: 8.1 },
-	'NG': { code: 'NG', name: 'Nigeria', flag: '🇳🇬', lat: 9.1, lng: 8.7 },
-	'MK': { code: 'MK', name: 'North Macedonia', flag: '🇲🇰', lat: 41.5, lng: 21.7 },
-	'NO': { code: 'NO', name: 'Norway', flag: '🇳🇴', lat: 60.5, lng: 8.5 },
-	'OM': { code: 'OM', name: 'Oman', flag: '🇴🇲', lat: 21.5, lng: 55.9 },
-	'PK': { code: 'PK', name: 'Pakistan', flag: '🇵🇰', lat: 30.4, lng: 69.3 },
-	'PW': { code: 'PW', name: 'Palau', flag: '🇵🇼', lat: 7.5, lng: 134.6 },
-	'PS': { code: 'PS', name: 'Palestine', flag: '🇵🇸', lat: 31.9, lng: 35.2 },
-	'PA': { code: 'PA', name: 'Panama', flag: '🇵🇦', lat: 8.5, lng: -80.8 },
-	'PG': { code: 'PG', name: 'Papua New Guinea', flag: '🇵🇬', lat: -6.3, lng: 143.9 },
-	'PY': { code: 'PY', name: 'Paraguay', flag: '🇵🇾', lat: -23.4, lng: -58.4 },
-	'PE': { code: 'PE', name: 'Peru', flag: '🇵🇪', lat: -9.2, lng: -75.0 },
-	'PH': { code: 'PH', name: 'Philippines', flag: '🇵🇭', lat: 12.9, lng: 121.8 },
-	'PL': { code: 'PL', name: 'Poland', flag: '🇵🇱', lat: 51.9, lng: 19.1 },
-	'PT': { code: 'PT', name: 'Portugal', flag: '🇵🇹', lat: 39.4, lng: -8.2 },
-	'QA': { code: 'QA', name: 'Qatar', flag: '🇶🇦', lat: 25.4, lng: 51.2 },
-	'RO': { code: 'RO', name: 'Romania', flag: '🇷🇴', lat: 45.9, lng: 25.0 },
-	'RU': { code: 'RU', name: 'Russia', flag: '🇷🇺', lat: 61.5, lng: 105.3 },
-	'RW': { code: 'RW', name: 'Rwanda', flag: '🇷🇼', lat: -1.9, lng: 29.9 },
-	'KN': { code: 'KN', name: 'Saint Kitts and Nevis', flag: '🇰🇳', lat: 17.4, lng: -62.8 },
-	'LC': { code: 'LC', name: 'Saint Lucia', flag: '🇱🇨', lat: 13.9, lng: -60.9 },
-	'VC': { code: 'VC', name: 'Saint Vincent', flag: '🇻🇨', lat: 13.3, lng: -61.2 },
-	'WS': { code: 'WS', name: 'Samoa', flag: '🇼🇸', lat: -13.8, lng: -172.0 },
-	'SM': { code: 'SM', name: 'San Marino', flag: '🇸🇲', lat: 43.9, lng: 12.5 },
-	'ST': { code: 'ST', name: 'São Tomé and Príncipe', flag: '🇸🇹', lat: 0.2, lng: 6.6 },
-	'SA': { code: 'SA', name: 'Saudi Arabia', flag: '🇸🇦', lat: 23.9, lng: 45.1 },
-	'SN': { code: 'SN', name: 'Senegal', flag: '🇸🇳', lat: 14.5, lng: -14.5 },
-	'RS': { code: 'RS', name: 'Serbia', flag: '🇷🇸', lat: 44.0, lng: 21.0 },
-	'SC': { code: 'SC', name: 'Seychelles', flag: '🇸🇨', lat: -4.7, lng: 55.5 },
-	'SL': { code: 'SL', name: 'Sierra Leone', flag: '🇸🇱', lat: 8.5, lng: -11.8 },
-	'SG': { code: 'SG', name: 'Singapore', flag: '🇸🇬', lat: 1.4, lng: 103.8 },
-	'SK': { code: 'SK', name: 'Slovakia', flag: '🇸🇰', lat: 48.7, lng: 19.7 },
-	'SI': { code: 'SI', name: 'Slovenia', flag: '🇸🇮', lat: 46.2, lng: 15.0 },
-	'SB': { code: 'SB', name: 'Solomon Islands', flag: '🇸🇧', lat: -9.6, lng: 160.2 },
-	'SO': { code: 'SO', name: 'Somalia', flag: '🇸🇴', lat: 5.2, lng: 46.2 },
-	'ZA': { code: 'ZA', name: 'South Africa', flag: '🇿🇦', lat: -30.6, lng: 22.9 },
-	'SS': { code: 'SS', name: 'South Sudan', flag: '🇸🇸', lat: 6.9, lng: 31.3 },
-	'ES': { code: 'ES', name: 'Spain', flag: '🇪🇸', lat: 40.5, lng: -3.7 },
-	'LK': { code: 'LK', name: 'Sri Lanka', flag: '🇱🇰', lat: 7.9, lng: 80.8 },
-	'SD': { code: 'SD', name: 'Sudan', flag: '🇸🇩', lat: 12.9, lng: 30.2 },
-	'SR': { code: 'SR', name: 'Suriname', flag: '🇸🇷', lat: 3.9, lng: -56.0 },
-	'SE': { code: 'SE', name: 'Sweden', flag: '🇸🇪', lat: 60.1, lng: 18.6 },
-	'CH': { code: 'CH', name: 'Switzerland', flag: '🇨🇭', lat: 46.8, lng: 8.2 },
-	'SY': { code: 'SY', name: 'Syria', flag: '🇸🇾', lat: 34.8, lng: 39.0 },
-	'TW': { code: 'TW', name: 'Taiwan', flag: '🇹🇼', lat: 23.7, lng: 121.0 },
-	'TJ': { code: 'TJ', name: 'Tajikistan', flag: '🇹🇯', lat: 38.9, lng: 71.3 },
-	'TZ': { code: 'TZ', name: 'Tanzania', flag: '🇹🇿', lat: -6.4, lng: 34.9 },
-	'TH': { code: 'TH', name: 'Thailand', flag: '🇹🇭', lat: 15.9, lng: 100.9 },
-	'TL': { code: 'TL', name: 'Timor-Leste', flag: '🇹🇱', lat: -8.9, lng: 125.7 },
-	'TG': { code: 'TG', name: 'Togo', flag: '🇹🇬', lat: 8.6, lng: 0.8 },
-	'TO': { code: 'TO', name: 'Tonga', flag: '🇹🇴', lat: -21.2, lng: -175.2 },
-	'TT': { code: 'TT', name: 'Trinidad and Tobago', flag: '🇹🇹', lat: 10.7, lng: -61.2 },
-	'TN': { code: 'TN', name: 'Tunisia', flag: '🇹🇳', lat: 33.9, lng: 9.5 },
-	'TR': { code: 'TR', name: 'Turkey', flag: '🇹🇷', lat: 38.9, lng: 35.2 },
-	'TM': { code: 'TM', name: 'Turkmenistan', flag: '🇹🇲', lat: 38.9, lng: 59.6 },
-	'TV': { code: 'TV', name: 'Tuvalu', flag: '🇹🇻', lat: -7.1, lng: 177.6 },
-	'UG': { code: 'UG', name: 'Uganda', flag: '🇺🇬', lat: 1.4, lng: 32.3 },
-	'UA': { code: 'UA', name: 'Ukraine', flag: '🇺🇦', lat: 48.4, lng: 31.2 },
-	'AE': { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', lat: 23.4, lng: 53.8 },
-	'GB': { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', lat: 55.4, lng: -3.4 },
-	'US': { code: 'US', name: 'United States', flag: '🇺🇸', lat: 37.1, lng: -95.7 },
-	'UY': { code: 'UY', name: 'Uruguay', flag: '🇺🇾', lat: -32.5, lng: -55.8 },
-	'UZ': { code: 'UZ', name: 'Uzbekistan', flag: '🇺🇿', lat: 41.4, lng: 64.6 },
-	'VU': { code: 'VU', name: 'Vanuatu', flag: '🇻🇺', lat: -15.4, lng: 166.9 },
-	'VA': { code: 'VA', name: 'Vatican City', flag: '🇻🇦', lat: 41.9, lng: 12.5 },
-	'VE': { code: 'VE', name: 'Venezuela', flag: '🇻🇪', lat: 6.4, lng: -66.6 },
-	'VN': { code: 'VN', name: 'Vietnam', flag: '🇻🇳', lat: 14.1, lng: 108.3 },
-	'YE': { code: 'YE', name: 'Yemen', flag: '🇾🇪', lat: 15.6, lng: 48.5 },
-	'ZM': { code: 'ZM', name: 'Zambia', flag: '🇿🇲', lat: -13.1, lng: 27.8 },
-	'ZW': { code: 'ZW', name: 'Zimbabwe', flag: '🇿🇼', lat: -19.0, lng: 29.2 },
-	// Territories and special regions
-	'HK': { code: 'HK', name: 'Hong Kong', flag: '🇭🇰', lat: 22.4, lng: 114.1 },
-	'MO': { code: 'MO', name: 'Macau', flag: '🇲🇴', lat: 22.2, lng: 113.5 },
-	'PR': { code: 'PR', name: 'Puerto Rico', flag: '🇵🇷', lat: 18.2, lng: -66.6 },
-	'GL': { code: 'GL', name: 'Greenland', flag: '🇬🇱', lat: 71.7, lng: -42.6 },
-	'FO': { code: 'FO', name: 'Faroe Islands', flag: '🇫🇴', lat: 61.9, lng: -6.9 },
-	'AW': { code: 'AW', name: 'Aruba', flag: '🇦🇼', lat: 12.5, lng: -69.9 },
-	'CW': { code: 'CW', name: 'Curaçao', flag: '🇨🇼', lat: 12.2, lng: -68.9 },
-	'BQ': { code: 'BQ', name: 'Bonaire', flag: '🇧🇶', lat: 12.2, lng: -68.3 },
-	'SX': { code: 'SX', name: 'Sint Maarten', flag: '🇸🇽', lat: 18.0, lng: -63.1 },
-	'GU': { code: 'GU', name: 'Guam', flag: '🇬🇺', lat: 13.4, lng: 144.8 },
-	'VI': { code: 'VI', name: 'U.S. Virgin Islands', flag: '🇻🇮', lat: 18.3, lng: -64.9 },
-	'GI': { code: 'GI', name: 'Gibraltar', flag: '🇬🇮', lat: 36.1, lng: -5.4 },
-	'IM': { code: 'IM', name: 'Isle of Man', flag: '🇮🇲', lat: 54.2, lng: -4.5 },
-	'JE': { code: 'JE', name: 'Jersey', flag: '🇯🇪', lat: 49.2, lng: -2.1 },
-	'GG': { code: 'GG', name: 'Guernsey', flag: '🇬🇬', lat: 49.5, lng: -2.5 },
-	'BM': { code: 'BM', name: 'Bermuda', flag: '🇧🇲', lat: 32.3, lng: -64.8 },
-	'KY': { code: 'KY', name: 'Cayman Islands', flag: '🇰🇾', lat: 19.5, lng: -80.6 },
-	'TC': { code: 'TC', name: 'Turks and Caicos', flag: '🇹🇨', lat: 21.7, lng: -71.8 },
-	'VG': { code: 'VG', name: 'British Virgin Islands', flag: '🇻🇬', lat: 18.4, lng: -64.6 },
-	'AI': { code: 'AI', name: 'Anguilla', flag: '🇦🇮', lat: 18.2, lng: -63.1 },
-	'MS': { code: 'MS', name: 'Montserrat', flag: '🇲🇸', lat: 16.7, lng: -62.2 },
-	'GP': { code: 'GP', name: 'Guadeloupe', flag: '🇬🇵', lat: 16.3, lng: -61.6 },
-	'MQ': { code: 'MQ', name: 'Martinique', flag: '🇲🇶', lat: 14.6, lng: -61.0 },
-	'GF': { code: 'GF', name: 'French Guiana', flag: '🇬🇫', lat: 4.0, lng: -53.0 },
-	'RE': { code: 'RE', name: 'Réunion', flag: '🇷🇪', lat: -21.1, lng: 55.5 },
-	'YT': { code: 'YT', name: 'Mayotte', flag: '🇾🇹', lat: -12.8, lng: 45.2 },
-	'NC': { code: 'NC', name: 'New Caledonia', flag: '🇳🇨', lat: -20.9, lng: 165.6 },
-	'PF': { code: 'PF', name: 'French Polynesia', flag: '🇵🇫', lat: -17.7, lng: -149.4 },
-	'WF': { code: 'WF', name: 'Wallis and Futuna', flag: '🇼🇫', lat: -13.8, lng: -177.2 },
-	'PM': { code: 'PM', name: 'Saint Pierre and Miquelon', flag: '🇵🇲', lat: 46.9, lng: -56.3 },
-	'AS': { code: 'AS', name: 'American Samoa', flag: '🇦🇸', lat: -14.3, lng: -170.1 },
-	'CK': { code: 'CK', name: 'Cook Islands', flag: '🇨🇰', lat: -21.2, lng: -159.8 },
-	'NU': { code: 'NU', name: 'Niue', flag: '🇳🇺', lat: -19.1, lng: -169.9 },
-	'TK': { code: 'TK', name: 'Tokelau', flag: '🇹🇰', lat: -9.2, lng: -171.9 },
-	'XK': { code: 'XK', name: 'Kosovo', flag: '🇽🇰', lat: 42.6, lng: 20.9 },
-};
-
-// Get sorted list of countries for display
-export function getSortedCountries(): CountryInfo[] {
-	return Object.values(COUNTRIES).sort((a, b) => a.name.localeCompare(b.name));
+function codeToFlagEmoji(code: string): string {
+	if (!/^[A-Z]{2}$/.test(code)) return '🏳️';
+	const A = 0x1f1e6;
+	const chars = [...code].map((char) => String.fromCodePoint(A + char.charCodeAt(0) - 65));
+	return chars.join('');
 }
 
-// Get country by code
+const countryList: CountryInfo[] = worldCountries
+	.filter((country) => /^[A-Z]{2}$/.test(country.cca2))
+	.map((country) => ({
+		code: country.cca2.toUpperCase(),
+		name: country.name?.common ?? country.cca2,
+		flag: country.flag || codeToFlagEmoji(country.cca2.toUpperCase()),
+		lat: Array.isArray(country.latlng) && Number.isFinite(country.latlng[0]) ? country.latlng[0] : Number.NaN,
+		lng: Array.isArray(country.latlng) && Number.isFinite(country.latlng[1]) ? country.latlng[1] : Number.NaN
+	}))
+	.sort((a, b) => a.name.localeCompare(b.name));
+
+export const COUNTRIES: Record<string, CountryInfo> = Object.fromEntries(
+	countryList.map((country) => [country.code, country])
+);
+
+export function getSortedCountries(): CountryInfo[] {
+	return countryList;
+}
+
 export function getCountry(code: string): CountryInfo | undefined {
 	return COUNTRIES[code.toUpperCase()];
 }
 
-// Search countries by name
 export function searchCountries(query: string): CountryInfo[] {
-	const lowerQuery = query.toLowerCase();
-	return getSortedCountries().filter(c => 
-		c.name.toLowerCase().includes(lowerQuery) || 
-		c.code.toLowerCase().includes(lowerQuery)
+	const lowerQuery = query.trim().toLowerCase();
+	if (!lowerQuery) return countryList;
+	return countryList.filter(
+		(country) =>
+			country.name.toLowerCase().includes(lowerQuery) ||
+			country.code.toLowerCase().includes(lowerQuery)
 	);
 }

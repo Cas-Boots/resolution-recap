@@ -26,7 +26,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 	
 	// Get selected person from query param
-	const selectedPersonId = url.searchParams.get('person');
+	const selectedPerson = url.searchParams.get('person');
+	const parsedSelectedPersonId = selectedPerson ? parseInt(selectedPerson, 10) : null;
+	const hasSelectedPerson = parsedSelectedPersonId !== null && Number.isFinite(parsedSelectedPersonId) && people.some((person) => person.id === parsedSelectedPersonId);
 
 	return {
 		authorized: true,
@@ -38,6 +40,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		monthlyStats,
 		streaks,
 		entries,
-		selectedPersonId: selectedPersonId ? parseInt(selectedPersonId) : null
+		selectedPersonId: hasSelectedPerson ? parsedSelectedPersonId : null
 	};
 };

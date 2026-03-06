@@ -3,6 +3,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { t } from '$lib/stores/locale';
+	import { pushAchievementCelebrations } from '$lib/stores/celebrations';
 	import type { Translations } from '$lib/i18n';
 
 	interface Props {
@@ -38,6 +39,9 @@
 		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
 		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
 		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
+		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
+		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
 		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
 		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
 		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
@@ -79,15 +83,13 @@
 	let metricId = $state<number | null>(null);
 	let entryDate = $state(data.today || new Date().toISOString().split('T')[0]);
 	let notes = $state('');
-	let selectedTags = $state<string[]>([]);
+	let selectedTag = $state<string | null>(null);
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state(false);
 	let duplicateWarning = $state<{ personName: string; metricName: string; tags?: string } | null>(null);
 	let skipDuplicateCheck = $state(false);
 	let lastEntry = $state<{ id: number; personName: string; metricName: string; date: string } | null>(null);
-	let unlockedAchievements = $state<Array<{ key: string; name: string; emoji: string; description: string }>>([]);
-	let showAchievementCelebration = $state(false);
 
 	// Season date bounds
 	let seasonMinDate = $derived(() => {
@@ -98,6 +100,17 @@
 		if (!data.season?.year) return undefined;
 		return `${data.season.year}-12-31`;
 	});
+
+	async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 5000): Promise<Response> {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+		try {
+			return await fetch(input, { ...init, signal: controller.signal });
+		} finally {
+			clearTimeout(timeoutId);
+		}
+	}
 
 	// Helper to check if a date is within the season
 	function isDateInSeason(daysAgo: number): boolean {
@@ -128,7 +141,7 @@
 		}
 		
 		try {
-			const res = await fetch(`${base}/api/entries/check-duplicate?personId=${personId}&metricId=${metricId}&entryDate=${entryDate}`);
+			const res = await fetchWithTimeout(`${base}/api/entries/check-duplicate?personId=${personId}&metricId=${metricId}&entryDate=${entryDate}`, { cache: 'no-store' }, 5000);
 			if (res.ok) {
 				const data = await res.json();
 				if (data.isDuplicate && data.existing) {
@@ -154,13 +167,15 @@
 		}
 	});
 
-	function toggleTag(tag: string) {
-		if (selectedTags.includes(tag)) {
-			selectedTags = selectedTags.filter(t => t !== tag);
-		} else {
-			selectedTags = [...selectedTags, tag];
-		}
+	function selectTag(tag: string) {
+		selectedTag = selectedTag === tag ? null : tag;
 	}
+
+	$effect(() => {
+		if (!isSportingMetric()) {
+			selectedTag = null;
+		}
+	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -178,6 +193,11 @@
 			}
 		}
 
+		if (isSportingMetric() && !selectedTag) {
+			error = 'Please select the specific sporting activity.';
+			return;
+		}
+
 		loading = true;
 		error = '';
 
@@ -190,7 +210,7 @@
 					metricId,
 					entryDate,
 					notes: notes.trim() || undefined,
-					tags: selectedTags.length > 0 ? selectedTags.join(',') : undefined
+					tags: selectedTag || undefined
 				})
 			});
 
@@ -210,19 +230,14 @@
 				
 				// Show achievement celebration if any unlocked
 				if (result.newAchievements && result.newAchievements.length > 0) {
-					unlockedAchievements = result.newAchievements;
-					showAchievementCelebration = true;
-					setTimeout(() => {
-						showAchievementCelebration = false;
-						unlockedAchievements = [];
-					}, 5000);
+					pushAchievementCelebrations(personId, person?.name || 'Unknown', result.newAchievements);
 				}
 				
 				// Reset form for quick successive entries
 				personId = null;
 				metricId = null;
 				notes = '';
-				selectedTags = [];
+				selectedTag = null;
 				// Keep date the same for convenience
 				
 				setTimeout(() => {
@@ -241,26 +256,6 @@
 		}
 	}
 </script>
-
-<!-- Achievement Celebration Overlay -->
-{#if showAchievementCelebration && unlockedAchievements.length > 0}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
-	<div class="fixed inset-0 bg-black/60 dark:bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Achievement unlocked" tabindex="-1" onclick={() => showAchievementCelebration = false}>
-		<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-		<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl dark:shadow-indigo-500/20 p-8 max-w-sm w-full text-center transform animate-bounce-in dark:border dark:border-gray-700" onclick={(e) => e.stopPropagation()}>
-			<div class="text-6xl mb-4">🎉</div>
-			<h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Achievement Unlocked!</h2>
-			{#each unlockedAchievements as achievement}
-				<div class="bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-amber-900/40 dark:to-yellow-900/40 rounded-xl p-4 mb-3 dark:border dark:border-amber-700/30">
-					<div class="text-4xl mb-2">{achievement.emoji}</div>
-					<div class="font-bold text-lg text-amber-800 dark:text-amber-300">{achievement.name}</div>
-					<div class="text-sm text-amber-700 dark:text-amber-400">{achievement.description}</div>
-				</div>
-			{/each}
-			<button onclick={() => showAchievementCelebration = false} class="mt-4 px-6 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 shadow-lg shadow-indigo-500/25 dark:shadow-indigo-500/40 transition-colors">Awesome!</button>
-		</div>
-	</div>
-{/if}
 
 <div class="space-y-6">
 	<div class="bg-white dark:bg-gray-800/90 dark:backdrop-blur-sm rounded-2xl shadow-lg dark:shadow-indigo-500/10 p-6 dark:border dark:border-gray-700/50">
@@ -316,14 +311,14 @@
 			{#if isSportingMetric()}
 				<div>
 					<p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						Activity Type <span class="text-gray-400 dark:text-gray-500">(select one or more)</span>
+						Activity Type <span class="text-gray-400 dark:text-gray-500">(select one)</span>
 					</p>
 					<div class="flex flex-wrap gap-2" role="group" aria-label="Activity type selection">
 						{#each SPORT_ACTIVITIES as activity}
 							<button
 								type="button"
-								onclick={() => toggleTag(activity.value)}
-								class="px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 border-2 {selectedTags.includes(activity.value) 
+								onclick={() => selectTag(activity.value)}
+								class="px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 border-2 {selectedTag === activity.value 
 									? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-400 shadow-lg shadow-indigo-500/40' 
 									: 'bg-white dark:bg-gray-700/80 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-500 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/40'}"
 							>
@@ -331,6 +326,7 @@
 							</button>
 						{/each}
 					</div>
+					<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Each sporting activity must be logged as a separate entry.</p>
 				</div>
 			{/if}
 
@@ -441,7 +437,7 @@
 
 			<button
 				type="submit"
-				disabled={loading || !personId || !metricId}
+				disabled={loading || !personId || !metricId || (isSportingMetric() && !selectedTag)}
 				class="w-full py-4 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400'} text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-indigo-500/25 dark:shadow-indigo-500/40"
 			>
 				{loading ? 'Adding...' : duplicateWarning ? '⚠️ Add anyway' : '➕ Add Entry'}

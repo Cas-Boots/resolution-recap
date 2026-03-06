@@ -42,65 +42,85 @@
 	async function addPerson() {
 		if (!newPersonName.trim()) return;
 		personLoading = true;
-		
-		await fetch(`${base}/api/people`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: newPersonName.trim(), emoji: newPersonEmoji || '👤' })
-		});
-		
-		newPersonName = '';
-		newPersonEmoji = '👤';
-		personLoading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/people`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: newPersonName.trim(), emoji: newPersonEmoji || '👤' })
+			});
+
+			if (res.ok) {
+				newPersonName = '';
+				newPersonEmoji = '👤';
+				await invalidateAll();
+			}
+		} finally {
+			personLoading = false;
+		}
 	}
 
 	// Update person
 	async function updatePerson(id: number, name: string, isActive: boolean, emoji?: string) {
 		personLoading = true;
-		
-		await fetch(`${base}/api/people`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, name, isActive, emoji })
-		});
-		
-		editingPersonId = null;
-		personLoading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/people`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, name, isActive, emoji })
+			});
+
+			if (res.ok) {
+				editingPersonId = null;
+				await invalidateAll();
+			}
+		} finally {
+			personLoading = false;
+		}
 	}
 
 	// Add metric
 	async function addMetric() {
 		if (!newMetricName.trim()) return;
 		metricLoading = true;
-		
-		await fetch(`${base}/api/metrics`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: newMetricName.trim(), emoji: newMetricEmoji || '📊', name_nl: newMetricNameNl.trim() || null })
-		});
-		
-		newMetricName = '';
-		newMetricEmoji = '📊';
-		newMetricNameNl = '';
-		metricLoading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/metrics`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: newMetricName.trim(), emoji: newMetricEmoji || '📊', name_nl: newMetricNameNl.trim() || null })
+			});
+
+			if (res.ok) {
+				newMetricName = '';
+				newMetricEmoji = '📊';
+				newMetricNameNl = '';
+				await invalidateAll();
+			}
+		} finally {
+			metricLoading = false;
+		}
 	}
 
 	// Update metric
 	async function updateMetric(id: number, name: string, isActive: boolean, emoji?: string, nameNl?: string) {
 		metricLoading = true;
-		
-		await fetch(`${base}/api/metrics`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, name, isActive, emoji, name_nl: nameNl || null })
-		});
-		
-		editingMetricId = null;
-		metricLoading = false;
-		await invalidateAll();
+
+		try {
+			const res = await fetch(`${base}/api/metrics`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, name, isActive, emoji, name_nl: nameNl || null })
+			});
+
+			if (res.ok) {
+				editingMetricId = null;
+				await invalidateAll();
+			}
+		} finally {
+			metricLoading = false;
+		}
 	}
 
 	// Goals management
@@ -121,62 +141,31 @@
 
 	async function saveGoal(personId: number, metricId: number, target: number) {
 		goalLoading = true;
-		
-		if (target > 0) {
-			await fetch(`${base}/api/goals`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ personId, metricId, target })
-			});
-		} else {
-			await fetch(`${base}/api/goals?personId=${personId}&metricId=${metricId}`, {
-				method: 'DELETE'
-			});
+
+		try {
+			if (target > 0) {
+				await fetch(`${base}/api/goals`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ personId, metricId, target })
+				});
+			} else {
+				await fetch(`${base}/api/goals?personId=${personId}&metricId=${metricId}`, {
+					method: 'DELETE'
+				});
+			}
+
+			await invalidateAll();
+		} finally {
+			goalLoading = false;
 		}
-		
-		goalLoading = false;
-		await invalidateAll();
 	}
 
 	// Countries management
 	let countryLoading = $state(false);
 	let selectedPersonForCountry = $state<number | null>(null);
-	let newCountryCode = $state('');
-	let newCountryName = $state('');
-
-	// Common countries list (including Netherlands as home country)
-	const COMMON_COUNTRIES = [
-		{ code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
-		{ code: 'BE', name: 'Belgium', flag: '🇧🇪' },
-		{ code: 'DE', name: 'Germany', flag: '🇩🇪' },
-		{ code: 'FR', name: 'France', flag: '🇫🇷' },
-		{ code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-		{ code: 'ES', name: 'Spain', flag: '🇪🇸' },
-		{ code: 'PT', name: 'Portugal', flag: '🇵🇹' },
-		{ code: 'IT', name: 'Italy', flag: '🇮🇹' },
-		{ code: 'AT', name: 'Austria', flag: '🇦🇹' },
-		{ code: 'CH', name: 'Switzerland', flag: '🇨🇭' },
-		{ code: 'GR', name: 'Greece', flag: '🇬🇷' },
-		{ code: 'HR', name: 'Croatia', flag: '🇭🇷' },
-		{ code: 'CZ', name: 'Czech Republic', flag: '🇨🇿' },
-		{ code: 'PL', name: 'Poland', flag: '🇵🇱' },
-		{ code: 'DK', name: 'Denmark', flag: '🇩🇰' },
-		{ code: 'SE', name: 'Sweden', flag: '🇸🇪' },
-		{ code: 'NO', name: 'Norway', flag: '🇳🇴' },
-		{ code: 'FI', name: 'Finland', flag: '🇫🇮' },
-		{ code: 'IE', name: 'Ireland', flag: '🇮🇪' },
-		{ code: 'US', name: 'United States', flag: '🇺🇸' },
-		{ code: 'CA', name: 'Canada', flag: '🇨🇦' },
-		{ code: 'AU', name: 'Australia', flag: '🇦🇺' },
-		{ code: 'JP', name: 'Japan', flag: '🇯🇵' },
-		{ code: 'TH', name: 'Thailand', flag: '🇹🇭' },
-		{ code: 'ID', name: 'Indonesia', flag: '🇮🇩' },
-		{ code: 'TR', name: 'Turkey', flag: '🇹🇷' },
-		{ code: 'MA', name: 'Morocco', flag: '🇲🇦' },
-		{ code: 'EG', name: 'Egypt', flag: '🇪🇬' },
-		{ code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
-		{ code: 'MX', name: 'Mexico', flag: '🇲🇽' }
-	];
+	let countrySearch = $state('');
+	let selectedCountryInitial = $state('ALL');
 
 	// Build countries map for easy lookup
 	const countriesMap = $derived.by(() => {
@@ -190,6 +179,79 @@
 		return map;
 	});
 
+	const availableCountriesMap = $derived.by(() => {
+		const map = new Map<string, { code: string; name: string; flag: string }>();
+		for (const country of data.availableCountries || []) {
+			map.set(country.code, country);
+		}
+		return map;
+	});
+
+	const filteredCountries = $derived.by(() => {
+		const query = countrySearch.trim().toLowerCase();
+		const initial = selectedCountryInitial;
+		return (data.availableCountries || []).filter((country) => {
+			const matchesSearch = !query || country.name.toLowerCase().includes(query) || country.code.toLowerCase().includes(query);
+			const matchesInitial = initial === 'ALL' || country.name.toUpperCase().startsWith(initial);
+			return matchesSearch && matchesInitial;
+		});
+	});
+
+	const countryInitials = $derived.by(() => {
+		const initials = new Set<string>();
+		for (const country of data.availableCountries || []) {
+			const first = country.name.trim().charAt(0).toUpperCase();
+			if (/^[A-Z]$/.test(first)) {
+				initials.add(first);
+			}
+		}
+		return Array.from(initials).sort((a, b) => a.localeCompare(b));
+	});
+
+	$effect(() => {
+		if (!countrySearch.trim() && selectedCountryInitial !== 'ALL') {
+			selectedCountryInitial = 'ALL';
+		}
+	});
+
+	const personVisitsMap = $derived.by(() => {
+		const map = new Map<number, { country_code: string; country_name: string }[]>();
+		for (const visit of data.countriesVisited || []) {
+			if (!map.has(visit.person_id)) {
+				map.set(visit.person_id, []);
+			}
+			map.get(visit.person_id)!.push({ country_code: visit.country_code, country_name: visit.country_name });
+		}
+
+		for (const [personId, visits] of map.entries()) {
+			visits.sort((a, b) => a.country_name.localeCompare(b.country_name));
+			map.set(personId, visits);
+		}
+
+		return map;
+	});
+
+	function codeToFlagEmoji(code: string): string {
+		if (!/^[A-Z]{2}$/.test(code)) return '🏳️';
+		const A = 0x1f1e6;
+		const chars = [...code].map((char) => String.fromCodePoint(A + char.charCodeAt(0) - 65));
+		return chars.join('');
+	}
+
+	function getCountryDisplay(countryCode: string, fallbackName?: string): { code: string; name: string; flag: string } {
+		const country = availableCountriesMap.get(countryCode.toUpperCase());
+		if (country) return country;
+		return {
+			code: countryCode.toUpperCase(),
+			name: fallbackName || countryCode,
+			flag: codeToFlagEmoji(countryCode.toUpperCase())
+		};
+	}
+
+	function getPersonVisitedCountries(personId: number): { country_code: string; country_name: string }[] {
+		return personVisitsMap.get(personId) || [];
+	}
+
 	function hasVisitedCountry(personId: number, countryCode: string): boolean {
 		return countriesMap.get(personId)?.has(countryCode) || false;
 	}
@@ -200,41 +262,24 @@
 
 	async function toggleCountry(personId: number, countryCode: string, countryName: string) {
 		countryLoading = true;
-		
-		if (hasVisitedCountry(personId, countryCode)) {
-			await fetch(`${base}/api/countries?personId=${personId}&countryCode=${countryCode}`, {
-				method: 'DELETE'
-			});
-		} else {
-			await fetch(`${base}/api/countries`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ personId, countryCode, countryName })
-			});
-		}
-		
-		countryLoading = false;
-		await invalidateAll();
-	}
 
-	async function addCustomCountry(personId: number) {
-		if (!newCountryCode.trim() || !newCountryName.trim()) return;
-		countryLoading = true;
-		
-		await fetch(`${base}/api/countries`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 
-				personId, 
-				countryCode: newCountryCode.trim().toUpperCase(), 
-				countryName: newCountryName.trim() 
-			})
-		});
-		
-		newCountryCode = '';
-		newCountryName = '';
-		countryLoading = false;
-		await invalidateAll();
+		try {
+			if (hasVisitedCountry(personId, countryCode)) {
+				await fetch(`${base}/api/countries?personId=${personId}&countryCode=${countryCode}`, {
+					method: 'DELETE'
+				});
+			} else {
+				await fetch(`${base}/api/countries`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ personId, countryCode, countryName })
+				});
+			}
+
+			await invalidateAll();
+		} finally {
+			countryLoading = false;
+		}
 	}
 </script>
 
@@ -508,50 +553,77 @@
 						
 						{#if selectedPersonForCountry === person.id}
 							<div class="bg-gray-50 rounded-lg p-3 space-y-3">
-								<!-- Quick select common countries -->
-								<div class="flex flex-wrap gap-2">
-									{#each COMMON_COUNTRIES as country}
-										<button
-											onclick={() => toggleCountry(person.id, country.code, country.name)}
-											disabled={countryLoading}
-											class="px-2 py-1 text-sm rounded-lg transition-colors {hasVisitedCountry(person.id, country.code) ? 'bg-teal-500 text-white' : 'bg-white border hover:bg-gray-100'}"
-											title={country.name}
-										>
-											{country.flag} {country.code}
-										</button>
-									{/each}
+								<div>
+									<p class="text-xs font-medium text-gray-600 mb-2">Visited countries</p>
+									<div class="flex flex-wrap gap-2">
+										{#each getPersonVisitedCountries(person.id) as visit}
+											{@const country = getCountryDisplay(visit.country_code, visit.country_name)}
+											<button
+												onclick={() => toggleCountry(person.id, country.code, country.name)}
+												disabled={countryLoading}
+												class="px-2 py-1 text-sm rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+												title="Remove {country.name}"
+											>
+												{country.flag} {country.code} ✕
+											</button>
+										{/each}
+										{#if getPersonVisitedCountries(person.id).length === 0}
+											<span class="text-sm text-gray-400">No countries recorded yet</span>
+										{/if}
+									</div>
 								</div>
 								
-								<!-- Add custom country -->
-								<div class="flex gap-2 pt-2 border-t">
+								<div class="pt-2 border-t">
+									<p class="text-xs font-medium text-gray-600 mb-2">All countries</p>
+									<div class="flex flex-wrap gap-1 mb-2">
+										<button
+											onclick={() => selectedCountryInitial = 'ALL'}
+											class="px-2 py-1 text-xs rounded-md transition-colors {selectedCountryInitial === 'ALL' ? 'bg-teal-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100'}"
+											disabled={countryLoading}
+										>
+											All
+										</button>
+										{#each countryInitials as initial}
+											<button
+												onclick={() => selectedCountryInitial = initial}
+												class="w-7 h-7 text-xs rounded-md transition-colors {selectedCountryInitial === initial ? 'bg-teal-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100'}"
+												disabled={countryLoading}
+											>
+												{initial}
+											</button>
+										{/each}
+									</div>
 									<input
 										type="text"
-										bind:value={newCountryCode}
-										placeholder="Code (e.g. BR)"
-										maxlength="3"
-										class="w-20 px-2 py-1 text-sm border rounded-lg focus:border-teal-500 focus:outline-none uppercase"
+										bind:value={countrySearch}
+										placeholder="Search country by name or code..."
+										class="w-full px-3 py-2 text-sm border rounded-lg focus:border-teal-500 focus:outline-none mb-2"
 										disabled={countryLoading}
 									/>
-									<input
-										type="text"
-										bind:value={newCountryName}
-										placeholder="Country name (e.g. Brazil)"
-										class="flex-1 px-2 py-1 text-sm border rounded-lg focus:border-teal-500 focus:outline-none"
-										disabled={countryLoading}
-									/>
-									<button
-										onclick={() => addCustomCountry(person.id)}
-										disabled={countryLoading || !newCountryCode.trim() || !newCountryName.trim()}
-										class="px-3 py-1 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
-									>
-										Add
-									</button>
+									<div class="max-h-56 overflow-y-auto border rounded-lg bg-white p-2">
+										<div class="flex flex-wrap gap-2">
+											{#each filteredCountries as country}
+												<button
+													onclick={() => toggleCountry(person.id, country.code, country.name)}
+													disabled={countryLoading}
+													class="px-2 py-1 text-sm rounded-lg transition-colors {hasVisitedCountry(person.id, country.code) ? 'bg-teal-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}"
+													title={country.name}
+												>
+													{country.flag} {country.code}
+												</button>
+											{/each}
+										</div>
+										{#if filteredCountries.length === 0}
+											<div class="text-sm text-gray-400 p-2">No matching countries.</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 						{:else}
 							<!-- Show visited countries summary -->
 							<div class="flex flex-wrap gap-1">
-								{#each COMMON_COUNTRIES.filter(c => hasVisitedCountry(person.id, c.code)) as country}
+								{#each getPersonVisitedCountries(person.id) as visit}
+									{@const country = getCountryDisplay(visit.country_code, visit.country_name)}
 									<span class="text-lg" title={country.name}>{country.flag}</span>
 								{/each}
 								{#if getPersonCountryCount(person.id) === 0}

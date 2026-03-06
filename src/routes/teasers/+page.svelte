@@ -53,6 +53,12 @@
 </script>
 
 <div class="space-y-6">
+	{#if data.authorized === false}
+		<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+			<div class="text-6xl mb-4">🔒</div>
+			<p class="text-gray-500 dark:text-gray-400">Please log in to view teasers.</p>
+		</div>
+	{:else}
 	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
 		<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">📱 WhatsApp Teasers</h1>
 		<p class="text-gray-500 dark:text-gray-400">
@@ -188,4 +194,5 @@
 			<li>• Save the juicy reveals for the end-of-year presentation!</li>
 		</ul>
 	</div>
+	{/if}
 </div>

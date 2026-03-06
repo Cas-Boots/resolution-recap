@@ -8,9 +8,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const role = validatePin(pin);
 	
 	if (role) {
+		const isProduction = process.env.NODE_ENV === 'production';
 		cookies.set('auth_role', role, {
 			path: '/',
 			httpOnly: true,
+			secure: isProduction,
 			sameSite: 'strict',
 			maxAge: 60 * 60 * 24 * 365 // 1 year
 		});
@@ -21,6 +23,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 };
 
 export const DELETE: RequestHandler = async ({ cookies }) => {
-	cookies.delete('auth_role', { path: '/' });
+	const isProduction = process.env.NODE_ENV === 'production';
+	cookies.delete('auth_role', {
+		path: '/',
+		httpOnly: true,
+		secure: isProduction,
+		sameSite: 'strict'
+	});
 	return json({ success: true });
 };

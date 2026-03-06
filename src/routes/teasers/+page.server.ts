@@ -16,12 +16,12 @@ interface TeaserMessage {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.role !== 'tracker') {
-		return { teasers: [], stats: null };
+		return { authorized: false, teasers: [], stats: null };
 	}
 
 	const season = getActiveSeason();
 	if (!season) {
-		return { teasers: [], stats: null };
+		return { authorized: true, teasers: [], stats: null };
 	}
 
 	const stats = getSeasonStats(season.id);
@@ -247,6 +247,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 
 	return { 
+		authorized: true,
 		teasers: teasers.slice(0, 15), // Limit to 15 teasers
 		stats: summaryStats 
 	};

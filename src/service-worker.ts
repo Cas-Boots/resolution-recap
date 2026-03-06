@@ -8,7 +8,8 @@ import { build, files, version } from '$service-worker';
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
 // Create unique cache names
-const CACHE_NAME = `cache-${version}`;
+const CACHE_PREFIX = 'resolution-recap-cache';
+const CACHE_NAME = `${CACHE_PREFIX}-${version}`;
 const STATIC_ASSETS = [...build, ...files];
 
 // Install event - cache static assets
@@ -16,9 +17,6 @@ sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		caches.open(CACHE_NAME).then((cache) => {
 			return cache.addAll(STATIC_ASSETS);
-		}).then(() => {
-			// Force the waiting service worker to become the active service worker
-			sw.skipWaiting();
 		})
 	);
 });
@@ -29,7 +27,7 @@ sw.addEventListener('activate', (event) => {
 		caches.keys().then((keys) => {
 			return Promise.all(
 				keys
-					.filter((key) => key !== CACHE_NAME)
+					.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
 					.map((key) => caches.delete(key))
 			);
 		}).then(() => {
@@ -55,6 +53,42 @@ sw.addEventListener('fetch', (event) => {
 	
 	// Skip external requests
 	if (url.origin !== location.origin) {
+		return;
+	}
+
+	const isNavigationRequest =
+		event.request.mode === 'navigate' || event.request.destination === 'document';
+
+	// Navigation requests: network-first for freshness, fallback to cache when offline
+	if (isNavigationRequest) {
+		event.respondWith(
+			fetch(event.request)
+				.then((response) => {
+					if (response.ok) {
+						const responseToCache = response.clone();
+						event.waitUntil(
+							caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache))
+						);
+					}
+					return response;
+				})
+				.catch(async () => {
+					const cachedResponse = await caches.match(event.request);
+					if (cachedResponse) {
+						return cachedResponse;
+					}
+
+					const rootCachedResponse = await caches.match('/');
+					if (rootCachedResponse) {
+						return rootCachedResponse;
+					}
+
+					return new Response(
+						'<html><body><h1>Offline</h1><p>Please check your connection.</p></body></html>',
+						{ headers: { 'Content-Type': 'text/html' } }
+					);
+				})
+		);
 		return;
 	}
 
@@ -89,7 +123,6 @@ sw.addEventListener('fetch', (event) => {
 				
 				// Cache HTML pages and other static assets
 				if (
-					event.request.destination === 'document' ||
 					event.request.destination === 'style' ||
 					event.request.destination === 'script' ||
 					event.request.destination === 'image' ||

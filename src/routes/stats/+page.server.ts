@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getSeasonStatsInRange, getActiveMetrics, getActivePeople, getGoalsForSeason, getMonthlyStats, getDailyStats, getStreaks, getDayOfWeekStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportProgression, getSportTotals, getSportProgressionByPerson, getSportStatsByPerson, get2025SportingBaselines } from '$lib/server/db';
+import { getActiveSeason, getSeasonStatsInRange, getActiveMetrics, getActivePeople, getGoalsForSeason, getMonthlyStats, getDailyStats, getStreaks, getDayOfWeekStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportTotals, getSportStatsByPerson, get2025SportingBaselines } from '$lib/server/db';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.role !== 'tracker') {
@@ -18,31 +18,38 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const startDate = url.searchParams.get('startDate') || `${season.year}-01-01`;
 	const endDate = url.searchParams.get('endDate') || `${season.year}-12-31`;
 	const activeTab = url.searchParams.get('tab') || 'overview';
+	const needsMonthlyStats = activeTab === 'overview' || activeTab === 'monthly' || activeTab === 'streaks';
+	const needsDailyStats = activeTab === 'calendar';
+	const needsStreaks = activeTab === 'streaks';
+	const needsInsightData = activeTab === 'insights';
+	const needsOverviewData = activeTab === 'overview' || activeTab === 'goals';
+	const needsStreakWarnings = activeTab === 'overview' || activeTab === 'streaks';
+	const needsGoals = activeTab === 'overview' || activeTab === 'goals';
 
 	const stats = getSeasonStatsInRange(season.id, startDate, endDate);
-	const goals = getGoalsForSeason(season.id);
-	const monthlyStats = getMonthlyStats(season.id);
-	const dailyStats = getDailyStats(season.id);
+	const goals = needsGoals ? getGoalsForSeason(season.id) : [];
+	const monthlyStats = needsMonthlyStats ? getMonthlyStats(season.id) : [];
+	const dailyStats = needsDailyStats ? getDailyStats(season.id) : [];
 	
 	// Get streaks for each metric
 	const streaks: Record<number, ReturnType<typeof getStreaks>> = {};
-	for (const metric of metrics) {
-		streaks[metric.id] = getStreaks(season.id, metric.id);
+	if (needsStreaks) {
+		for (const metric of metrics) {
+			streaks[metric.id] = getStreaks(season.id, metric.id);
+		}
 	}
 
 	// New enhanced stats data
-	const dayOfWeekStats = getDayOfWeekStats(season.id);
-	const personalBests = getPersonalBests(season.id);
-	const consistencyScores = getConsistencyScores(season.id);
-	const cumulativeStats = getCumulativeStats(season.id);
-	const streakWarnings = getStreakWarnings(season.id);
-	const sportProgression = getSportProgression(season.id);
-	const sportTotals = getSportTotals(season.id);
-	const sportProgressionByPerson = getSportProgressionByPerson(season.id);
-	const sportStatsByPerson = getSportStatsByPerson(season.id);
+	const dayOfWeekStats = needsInsightData ? getDayOfWeekStats(season.id) : [];
+	const personalBests = needsInsightData ? getPersonalBests(season.id) : {};
+	const consistencyScores = needsInsightData ? getConsistencyScores(season.id) : [];
+	const cumulativeStats = needsOverviewData ? getCumulativeStats(season.id) : [];
+	const streakWarnings = needsStreakWarnings ? getStreakWarnings(season.id) : [];
+	const sportTotals = needsOverviewData ? getSportTotals(season.id) : [];
+	const sportStatsByPerson = needsOverviewData ? getSportStatsByPerson(season.id) : [];
 	
 	// Get 2025 baselines for projections - convert Map to object for serialization
-	const baselines2025 = Object.fromEntries(get2025SportingBaselines());
+	const baselines2025 = needsOverviewData ? Object.fromEntries(get2025SportingBaselines()) : {};
 
 	return {
 		authorized: true,
@@ -62,9 +69,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		consistencyScores,
 		cumulativeStats,
 		streakWarnings,
-		sportProgression,
 		sportTotals,
-		sportProgressionByPerson,
 		sportStatsByPerson,
 		baselines2025
 	};

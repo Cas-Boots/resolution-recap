@@ -12,16 +12,27 @@ import {
 	getActivePeople
 } from '$lib/server/db';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.role !== 'tracker') {
 		return { authorized: false };
 	}
 
-	const historicalSeasons = getHistoricalSeasons();
-	const allTimeLeaderboard = getAllTimeLeaderboard();
-	const timelineData = getTimelineData();
-	const people = getActivePeople();
-	const season = getActiveSeason();
+	const activeTabParam = url.searchParams.get('tab');
+	const activeTab = (activeTabParam && ['seasons', 'alltime', 'compare', 'predictions', 'timeline'].includes(activeTabParam))
+		? activeTabParam as 'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline'
+		: 'seasons';
+
+	const needsHistoricalSeasons = activeTab === 'seasons' || activeTab === 'compare';
+	const needsAllTime = activeTab === 'alltime';
+	const needsTimeline = activeTab === 'timeline';
+	const needsPredictions = activeTab === 'predictions';
+	const needsPeople = activeTab === 'alltime';
+
+	const historicalSeasons = needsHistoricalSeasons ? getHistoricalSeasons() : [];
+	const allTimeLeaderboard = needsAllTime ? getAllTimeLeaderboard() : [];
+	const timelineData = needsTimeline ? getTimelineData() : { years: [], people: [] };
+	const people = needsPeople ? getActivePeople() : [];
+	const season = needsPredictions ? getActiveSeason() : null;
 	
 	// Calculate day of year
 	const now = new Date();
@@ -33,7 +44,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let personalRecords: ReturnType<typeof getPersonalRecords> = [];
 	let predictions: ReturnType<typeof getPredictions> = [];
 	
-	if (season) {
+	if (needsPredictions && season) {
 		yearOverYear = getYearOverYearComparison(season.id, dayOfYear);
 		personalRecords = getPersonalRecords(season.id, dayOfYear);
 		predictions = getPredictions(season.id, dayOfYear);
@@ -41,12 +52,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	
 	// Get legacy badges for each person
 	const legacyBadges: Record<string, ReturnType<typeof getLegacyBadgesForPerson>> = {};
-	for (const person of people) {
-		legacyBadges[person.name] = getLegacyBadgesForPerson(person.name);
+	if (needsAllTime) {
+		for (const person of people) {
+			legacyBadges[person.name] = getLegacyBadgesForPerson(person.name);
+		}
 	}
 
 	return {
 		authorized: true,
+		activeTab,
 		historicalSeasons,
 		allTimeLeaderboard,
 		timelineData,

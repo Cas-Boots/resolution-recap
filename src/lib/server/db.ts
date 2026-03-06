@@ -287,6 +287,73 @@ function initializeSchema(database: DatabaseType) {
 	} catch {
 		// Table already exists
 	}
+
+	// Migration: split legacy sporting entries with multiple activity tags into separate entries
+	normalizeLegacySportEntries(database);
+}
+
+function parseEntryTags(rawTags: string | null): string[] {
+	if (!rawTags) return [];
+	const trimmed = rawTags.trim();
+	if (!trimmed) return [];
+
+	try {
+		const parsed = JSON.parse(trimmed);
+		if (Array.isArray(parsed)) {
+			return Array.from(new Set(parsed.map((value) => String(value).trim()).filter(Boolean)));
+		}
+	} catch {
+		// fallback to comma-separated parsing
+	}
+
+	return Array.from(new Set(trimmed.split(',').map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeLegacySportEntries(database: DatabaseType): void {
+	const rows = database.prepare(`
+		SELECT e.id, e.season_id, e.person_id, e.metric_id, e.entry_date, e.notes, e.tags, e.deleted_at, e.created_at
+		FROM entries e
+		JOIN metrics m ON m.id = e.metric_id
+		WHERE LOWER(m.name) = 'sporting' AND e.tags IS NOT NULL AND TRIM(e.tags) != ''
+	`).all() as Entry[];
+
+	if (rows.length === 0) return;
+
+	const updateEntryTags = database.prepare('UPDATE entries SET tags = ? WHERE id = ?');
+	const insertEntry = database.prepare(`
+		INSERT INTO entries (season_id, person_id, metric_id, entry_date, notes, tags, deleted_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`);
+
+	const migrate = database.transaction((entries: Entry[]) => {
+		let splitEntriesCreated = 0;
+		for (const entry of entries) {
+			const tags = parseEntryTags(entry.tags);
+			if (tags.length <= 1) continue;
+
+			updateEntryTags.run(tags[0], entry.id);
+			for (const tag of tags.slice(1)) {
+				insertEntry.run(
+					entry.season_id,
+					entry.person_id,
+					entry.metric_id,
+					entry.entry_date,
+					entry.notes,
+					tag,
+					entry.deleted_at,
+					entry.created_at
+				);
+				splitEntriesCreated += 1;
+			}
+		}
+
+		return splitEntriesCreated;
+	});
+
+	const created = migrate(rows);
+	if (created > 0) {
+		console.log(`🔧 Normalized legacy sporting entries: created ${created} split entries`);
+	}
 }
 
 // Achievement definitions
@@ -909,22 +976,29 @@ export function createEntry(seasonId: number, personId: number, metricId: number
 	return entry;
 }
 
-export function updateEntry(id: number, personId: number, metricId: number, entryDate: string, performedBy: 'tracker' | 'admin' = 'tracker'): void {
+export function updateEntry(id: number, personId: number, metricId: number, entryDate: string, performedBy: 'tracker' | 'admin' = 'tracker', tags?: string | null): void {
 	// Get old values first
 	const oldEntry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
-	
-	db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ? WHERE id = ?')
-		.run(personId, metricId, entryDate, id);
+
+	if (tags !== undefined) {
+		db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ?, tags = ? WHERE id = ?')
+			.run(personId, metricId, entryDate, tags, id);
+	} else {
+		db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ? WHERE id = ?')
+			.run(personId, metricId, entryDate, id);
+	}
 	
 	// Log the update
 	logAudit(id, 'update', performedBy, {
 		person_id: oldEntry.person_id,
 		metric_id: oldEntry.metric_id,
-		entry_date: oldEntry.entry_date
+		entry_date: oldEntry.entry_date,
+		tags: oldEntry.tags ?? null
 	}, {
 		person_id: personId,
 		metric_id: metricId,
-		entry_date: entryDate
+		entry_date: entryDate,
+		tags: tags !== undefined ? tags : oldEntry.tags ?? null
 	});
 }
 
@@ -1315,19 +1389,22 @@ export function getMonthlyStats(seasonId: number): { month: string; person_id: n
 	`).all(seasonId) as { month: string; person_id: number; person_name: string; person_emoji: string; metric_id: number; metric_name: string; count: number }[];
 }
 
-export function getDailyStats(seasonId: number): { date: string; person_id: number; person_name: string; count: number }[] {
+export function getDailyStats(seasonId: number): { date: string; person_id: number; person_name: string; metric_id: number; metric_name: string; count: number }[] {
 	return db.prepare(`
 		SELECT 
 			e.entry_date as date,
 			p.id as person_id,
 			p.name as person_name,
+			m.id as metric_id,
+			m.name as metric_name,
 			COUNT(e.id) as count
 		FROM entries e
 		JOIN people p ON e.person_id = p.id
+		JOIN metrics m ON e.metric_id = m.id
 		WHERE e.season_id = ? AND e.deleted_at IS NULL
-		GROUP BY e.entry_date, p.id
+		GROUP BY e.entry_date, p.id, m.id
 		ORDER BY e.entry_date
-	`).all(seasonId) as { date: string; person_id: number; person_name: string; count: number }[];
+	`).all(seasonId) as { date: string; person_id: number; person_name: string; metric_id: number; metric_name: string; count: number }[];
 }
 
 export function getWeeklyStats(seasonId: number): { week: string; person_id: number; metric_id: number; count: number }[] {
@@ -2208,7 +2285,40 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		ORDER BY total DESC
 	`).all(seasonId, sportingMetric.id) as { tags: string; total: number }[];
 	
-	const grandTotal = rows.reduce((sum, row) => sum + row.total, 0);
+	const normalizeSportTag = (rawTag: string): string => {
+		const input = rawTag.trim();
+		if (!input) return 'other';
+
+		try {
+			const parsed = JSON.parse(input);
+			if (Array.isArray(parsed) && parsed.length > 0) {
+				const first = parsed.find((tag) => typeof tag === 'string' && tag.trim().length > 0);
+				if (typeof first === 'string') {
+					return first.trim().toLowerCase();
+				}
+			}
+			if (typeof parsed === 'string' && parsed.trim().length > 0) {
+				return parsed.trim().toLowerCase();
+			}
+		} catch {
+			// Non-JSON tag format
+		}
+
+		if (input.includes(',')) {
+			const first = input.split(',')[0].trim();
+			if (first) return first.toLowerCase();
+		}
+
+		return input.toLowerCase();
+	};
+
+	const totalsByTag = new Map<string, number>();
+	for (const row of rows) {
+		const normalized = normalizeSportTag(row.tags);
+		totalsByTag.set(normalized, (totalsByTag.get(normalized) || 0) + row.total);
+	}
+
+	const grandTotal = Array.from(totalsByTag.values()).reduce((sum, value) => sum + value, 0);
 	
 	// Map sport types to emojis
 	const sportEmojis: Record<string, string> = {
@@ -2223,23 +2333,59 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		'basketball': '🏀',
 		'hockey': '🏑',
 		'volleyball': '🏐',
+		'football': '⚽',
 		'soccer': '⚽',
 		'hiking': '🥾',
 		'skating': '⛸️',
 		'skiing': '⛷️',
+		'snowboarding': '🏂',
+		'sledding': '🛷',
+		'physio': '🧑‍⚕️',
 		'rowing': '🚣',
 		'climbing': '🧗',
 		'bouldering': '🧗',
 		'fitness': '💪',
 		'other': '🏃'
 	};
+
+	const sportDisplayNames: Record<string, string> = {
+		'running': 'Running',
+		'cycling': 'Cycling',
+		'swimming': 'Swimming',
+		'walking': 'Walking',
+		'gym': 'Gym',
+		'yoga': 'Yoga',
+		'tennis': 'Tennis',
+		'padel': 'Padel',
+		'basketball': 'Basketball',
+		'hockey': 'Hockey',
+		'volleyball': 'Volleyball',
+		'football': 'Football',
+		'soccer': 'Soccer',
+		'hiking': 'Hiking',
+		'skating': 'Skating',
+		'skiing': 'Skiing',
+		'snowboarding': 'Snowboarding',
+		'sledding': 'Sledding',
+		'physio': 'Physio',
+		'rowing': 'Rowing',
+		'climbing': 'Climbing',
+		'bouldering': 'Bouldering',
+		'fitness': 'Fitness',
+		'hyrox': 'Hyrox',
+		'boxing': 'Boxing',
+		'dance': 'Dance',
+		'other': 'Other'
+	};
 	
-	return rows.map(row => ({
-		tag: row.tags,
-		emoji: sportEmojis[row.tags.toLowerCase()] || '🏃',
-		total: row.total,
-		percentage: grandTotal > 0 ? Math.round((row.total / grandTotal) * 100) : 0
-	}));
+	return Array.from(totalsByTag.entries())
+		.sort(([, totalA], [, totalB]) => totalB - totalA)
+		.map(([tag, total]) => ({
+			tag: sportDisplayNames[tag] || tag.charAt(0).toUpperCase() + tag.slice(1),
+			emoji: sportEmojis[tag] || '🏃',
+			total,
+			percentage: grandTotal > 0 ? Math.round((total / grandTotal) * 100) : 0
+		}));
 }
 
 // Get sport progression per person with cumulative data for trend lines

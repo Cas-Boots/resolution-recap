@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidate, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { 
@@ -11,6 +11,7 @@
 		syncPendingEntries 
 	} from '$lib/stores/offlineQueue';
 	import { locale, t } from '$lib/stores/locale';
+	import { pushAchievementCelebrations, pushMilestoneCelebration } from '$lib/stores/celebrations';
 	import type { Translations, Locale } from '$lib/i18n';
 	import { translateMetric } from '$lib/i18n';
 
@@ -56,6 +57,9 @@
 		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
 		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
 		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
+		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
+		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
 		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
 		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
 		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
@@ -67,7 +71,41 @@
 		data: PageData;
 	}
 
+	type DashboardPeriod = 'today' | 'week' | 'month' | 'all';
+	type SparklineEntry = { person_id: number; metric_id: number; entry_date: string; count: number };
+	type WeeklyComparisonEntry = { person_id: number; metric_id: number; this_week: number; last_week: number };
+	type TodayEntry = { person_name: string; person_emoji?: string | null; metric_name: string; tags?: string | null };
+	type StreakEntry = { person_id: number; metric_id: number; current_streak: number; longest_streak: number };
+	type GoalProgressEntry = { person_id: number; metric_id: number; target: number; current: number; person_name: string; metric_name: string };
+	type RecentEntry = {
+		person_emoji?: string | null;
+		person_name: string;
+		metric_name: string;
+		entry_date: string;
+		created_at: string;
+		notes?: string | null;
+	};
+
+	type SecondaryDashboardData = {
+		recentEntries: RecentEntry[];
+		sparklineData: SparklineEntry[];
+		todayEntries: TodayEntry[];
+		weeklyComparison: WeeklyComparisonEntry[];
+		streaks: StreakEntry[];
+		goals: GoalProgressEntry[];
+	};
+
 	let { data }: Props = $props();
+	let secondaryData = $state<SecondaryDashboardData>({
+		recentEntries: (data.recentEntries as RecentEntry[]) ?? [],
+		sparklineData: (data.sparklineData as SparklineEntry[]) ?? [],
+		todayEntries: (data.todayEntries as TodayEntry[]) ?? [],
+		weeklyComparison: (data.weeklyComparison as WeeklyComparisonEntry[]) ?? [],
+		streaks: (data.streaks as StreakEntry[]) ?? [],
+		goals: (data.goals as GoalProgressEntry[]) ?? []
+	});
+	let secondaryLoading = $state(false);
+	let secondaryInFlight: Promise<void> | null = null;
 
 	// Quick action state
 	let pendingAction = $state<{ personId: number; personName: string; personEmoji: string; metricId: number; metricName: string } | null>(null);
@@ -75,7 +113,6 @@
 	let duplicateWarning = $state<{ personName: string; metricName: string; tags?: string } | null>(null);
 	let loading = $state(false);
 	let successMessage = $state('');
-	let newAchievements = $state<{ name: string; emoji: string }[]>([]);
 	let lastEntryId = $state<number | null>(null);
 	let offlinePending = $state(0);
 	let online = $state(true);
@@ -89,6 +126,9 @@
 	let isPulling = $state(false);
 	let isRefreshing = $state(false);
 	const PULL_THRESHOLD = 80;
+	let refreshInFlight: Promise<void> | null = null;
+	let serverReachable = $state(true);
+	let serverRecoveryIntervalId: ReturnType<typeof setInterval> | null = null;
 
 	// Swipe gesture state
 	let swipeStartX = $state(0);
@@ -99,18 +139,14 @@
 
 	// Expandable person details state
 	let expandedPersonId = $state<number | null>(null);
-	let personHistory = $state<Map<number, { person_name: string; metric_name: string; entry_date: string; notes?: string }[]>>(new Map());
+	let personHistory = $state<Map<number, { person_name: string; metric_name: string; entry_date: string; notes?: string; tags?: string | null }[]>>(new Map());
 
 	// Time period filter state
-	let selectedPeriod = $state<'today' | 'week' | 'month' | 'all'>('all');
+	let selectedPeriod = $state<DashboardPeriod>((data.selectedPeriod as DashboardPeriod) ?? 'all');
 	
 	// View mode state - supports per-metric leaderboards
 	let viewMode = $state<'default' | string>('default');
 	let selectedLeaderboardMetric = $state<string | null>(null);
-	
-	// Confetti state
-	let showConfetti = $state(false);
-	let confettiMessage = $state('');
 	
 	// Animation tracking for counter changes
 	let animatingCounters = $state<Set<string>>(new Set());
@@ -134,10 +170,26 @@
 
 	// Subscribe to offline stores
 	onMount(() => {
-		initOfflineSupport();
+		const cleanupOffline = initOfflineSupport();
+		void loadSecondaryDashboardData('secondary-hydration');
 		
 		const unsubPending = pendingEntriesCount.subscribe(v => offlinePending = v);
 		const unsubOnline = isOnline.subscribe(v => online = v);
+
+		const handleOfflineSyncComplete = () => {
+			void refreshDashboard({ source: 'reconnect-auto' });
+		};
+
+		const handleWindowFocus = () => {
+			void checkServerAvailabilityAndRecover();
+		};
+
+		window.addEventListener('offline-sync-complete', handleOfflineSyncComplete);
+		window.addEventListener('focus', handleWindowFocus);
+
+		serverRecoveryIntervalId = setInterval(() => {
+			void checkServerAvailabilityAndRecover();
+		}, 10000);
 		
 		// Keyboard shortcuts handler
 		function handleKeyDown(e: KeyboardEvent) {
@@ -202,18 +254,202 @@
 			
 			// R for refresh
 			if (e.key === 'r' || e.key === 'R') {
-				invalidateAll();
+				void refreshDashboard({ source: 'keyboard-refresh' });
 			}
 		}
 		
 		document.addEventListener('keydown', handleKeyDown);
 		
 		return () => {
+			cleanupOffline?.();
 			unsubPending();
 			unsubOnline();
+			window.removeEventListener('offline-sync-complete', handleOfflineSyncComplete);
+			window.removeEventListener('focus', handleWindowFocus);
+			if (serverRecoveryIntervalId) {
+				clearInterval(serverRecoveryIntervalId);
+				serverRecoveryIntervalId = null;
+			}
 			document.removeEventListener('keydown', handleKeyDown);
 		};
 	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		const currentUrl = new URL(window.location.href);
+		const currentPeriod = (currentUrl.searchParams.get('period') as DashboardPeriod | null) ?? 'all';
+		if (currentPeriod === selectedPeriod) return;
+
+		if (selectedPeriod === 'all') {
+			currentUrl.searchParams.delete('period');
+		} else {
+			currentUrl.searchParams.set('period', selectedPeriod);
+		}
+
+		const nextUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+		void goto(nextUrl, { replaceState: true, noScroll: true, keepFocus: true });
+		void sendRefreshTelemetry({ source: 'period-change', durationMs: 0, success: true });
+	});
+
+	async function sendRefreshTelemetry(payload: {
+		source: string;
+		durationMs: number;
+		success: boolean;
+	}): Promise<void> {
+		const body = JSON.stringify({
+			...payload,
+			period: selectedPeriod,
+			online,
+			pendingOfflineCount: offlinePending,
+			timestamp: new Date().toISOString()
+		});
+
+		try {
+			if (navigator.sendBeacon) {
+				const blob = new Blob([body], { type: 'application/json' });
+				navigator.sendBeacon(`${base}/api/telemetry/refresh`, blob);
+				return;
+			}
+
+			await fetch(`${base}/api/telemetry/refresh`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body,
+				keepalive: true
+			});
+		} catch {
+			// Best-effort telemetry
+		}
+	}
+
+	async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+		try {
+			return await fetch(input, { ...init, signal: controller.signal });
+		} finally {
+			clearTimeout(timeoutId);
+		}
+	}
+
+	async function loadSecondaryDashboardData(source: string = 'secondary-hydration'): Promise<void> {
+		if (!data.season) {
+			secondaryData = {
+				recentEntries: [],
+				sparklineData: [],
+				todayEntries: [],
+				weeklyComparison: [],
+				streaks: [],
+				goals: []
+			};
+			return;
+		}
+
+		if (secondaryInFlight) return secondaryInFlight;
+
+		const start = performance.now();
+		secondaryLoading = true;
+		secondaryInFlight = (async () => {
+			let success = false;
+			try {
+				const res = await fetchWithTimeout(`${base}/api/dashboard/secondary`, { cache: 'no-store' }, 8000);
+				if (!res.ok) {
+					serverReachable = false;
+					return;
+				}
+
+				const payload = await res.json();
+				secondaryData = {
+					recentEntries: payload.recentEntries ?? [],
+					sparklineData: payload.sparklineData ?? [],
+					todayEntries: payload.todayEntries ?? [],
+					weeklyComparison: payload.weeklyComparison ?? [],
+					streaks: payload.streaks ?? [],
+					goals: payload.goals ?? []
+				};
+				serverReachable = true;
+				success = true;
+			} catch {
+				serverReachable = false;
+			} finally {
+				secondaryLoading = false;
+				secondaryInFlight = null;
+				void sendRefreshTelemetry({
+					source,
+					durationMs: performance.now() - start,
+					success
+				});
+			}
+		})();
+
+		return secondaryInFlight;
+	}
+
+	async function refreshDashboard(options: { showIndicator?: boolean; source?: string } = {}): Promise<void> {
+		if (refreshInFlight) return refreshInFlight;
+
+		const { showIndicator = false, source = 'manual-refresh' } = options;
+		const start = performance.now();
+		if (showIndicator) {
+			isRefreshing = true;
+		}
+
+		refreshInFlight = (async () => {
+			let success = false;
+			try {
+				await invalidate('app:dashboard');
+				serverReachable = true;
+				success = true;
+			} catch {
+				serverReachable = false;
+				try {
+					await invalidateAll();
+					serverReachable = true;
+					success = true;
+				} catch {
+					serverReachable = false;
+					success = false;
+				}
+			} finally {
+				void sendRefreshTelemetry({
+					source,
+					durationMs: performance.now() - start,
+					success
+				});
+				void loadSecondaryDashboardData('post-refresh-secondary');
+			}
+		})().finally(() => {
+			if (showIndicator) {
+				isRefreshing = false;
+			}
+			refreshInFlight = null;
+		});
+
+		return refreshInFlight;
+	}
+
+	async function checkServerAvailabilityAndRecover(): Promise<void> {
+		if (!online) return;
+
+		try {
+			const response = await fetchWithTimeout(`${base}/health`, { cache: 'no-store' }, 5000);
+			if (!response.ok) {
+				serverReachable = false;
+				return;
+			}
+
+			const wasReachable = serverReachable;
+			serverReachable = true;
+
+			if (!wasReachable) {
+				await refreshDashboard({ source: 'server-recovered' });
+			}
+		} catch {
+			serverReachable = false;
+		}
+	}
 
 	// Helper to get optimistic count
 	function getOptimisticCount(personId: number, metricName: string, actualCount: number): number {
@@ -273,9 +509,7 @@
 		isPulling = false;
 		
 		if (pullDistance >= PULL_THRESHOLD) {
-			isRefreshing = true;
-			await invalidateAll();
-			isRefreshing = false;
+			await refreshDashboard({ showIndicator: true, source: 'pull-to-refresh' });
 		}
 		pullDistance = 0;
 	}
@@ -376,7 +610,7 @@
 	// Build sparkline data lookup: Map<"personId-metricId", number[]>
 	const sparklineMap = $derived.by(() => {
 		const map = new Map<string, number[]>();
-		if (!data.sparklineData) return map;
+		if (!secondaryData.sparklineData) return map;
 		
 		// Generate last 7 days
 		const days: string[] = [];
@@ -394,7 +628,7 @@
 		}
 		
 		// Fill in actual counts
-		for (const entry of data.sparklineData) {
+		for (const entry of secondaryData.sparklineData) {
 			const key = `${entry.person_id}-${entry.metric_id}`;
 			const arr = map.get(key);
 			if (arr) {
@@ -408,12 +642,22 @@
 		return map;
 	});
 
+	const sparklinePathMap = $derived.by(() => {
+		const paths = new Map<string, string>();
+		for (const [key, values] of sparklineMap.entries()) {
+			if (values.some(v => v > 0)) {
+				paths.set(key, getSparklinePath(values));
+			}
+		}
+		return paths;
+	});
+
 	// Build weekly comparison lookup: Map<"personId-metricId", { thisWeek: number, lastWeek: number, diff: number }>
 	const weeklyComparisonMap = $derived.by(() => {
 		const map = new Map<string, { thisWeek: number; lastWeek: number; diff: number }>();
-		if (!data.weeklyComparison) return map;
+		if (!secondaryData.weeklyComparison) return map;
 		
-		for (const item of data.weeklyComparison) {
+		for (const item of secondaryData.weeklyComparison) {
 			const key = `${item.person_id}-${item.metric_id}`;
 			map.set(key, {
 				thisWeek: item.this_week,
@@ -427,23 +671,25 @@
 
 	// Today's activity summary
 	const todaySummary = $derived.by(() => {
-		if (!data.todayEntries || data.todayEntries.length === 0) return null;
+		if (!secondaryData.todayEntries || secondaryData.todayEntries.length === 0) return null;
 		
-		const byPerson = new Map<string, { emoji: string; metrics: string[] }>();
-		for (const entry of data.todayEntries) {
+		const byPerson = new Map<string, { emoji: string; activityIcons: string[]; entryCount: number }>();
+		for (const entry of secondaryData.todayEntries) {
 			const name = entry.person_name;
 			if (!byPerson.has(name)) {
-				byPerson.set(name, { emoji: entry.person_emoji || '👤', metrics: [] });
+				byPerson.set(name, { emoji: entry.person_emoji || '👤', activityIcons: [], entryCount: 0 });
 			}
-			byPerson.get(name)!.metrics.push(entry.metric_name);
+			byPerson.get(name)!.activityIcons.push(getTodayActivityIcon(entry));
+			byPerson.get(name)!.entryCount += 1;
 		}
 		
 		return {
-			totalCount: data.todayEntries.length,
+			totalCount: secondaryData.todayEntries.length,
 			byPerson: Array.from(byPerson.entries()).map(([name, data]) => ({
 				name,
 				emoji: data.emoji,
-				metrics: data.metrics
+				activityIcons: data.activityIcons,
+				entryCount: data.entryCount
 			}))
 		};
 	});
@@ -451,9 +697,9 @@
 	// Streaks lookup: Map<"personId-metricId", { current: number, longest: number }>
 	const streaksMap = $derived.by(() => {
 		const map = new Map<string, { current: number; longest: number }>();
-		if (!data.streaks) return map;
+		if (!secondaryData.streaks) return map;
 		
-		for (const streak of data.streaks) {
+		for (const streak of secondaryData.streaks) {
 			const key = `${streak.person_id}-${streak.metric_id}`;
 			map.set(key, {
 				current: streak.current_streak,
@@ -467,9 +713,9 @@
 	// Goals lookup: Map<"personId-metricId", { target: number, current: number }>
 	const goalsMap = $derived.by(() => {
 		const map = new Map<string, { target: number; current: number; percentage: number }>();
-		if (!data.goals) return map;
+		if (!secondaryData.goals) return map;
 		
-		for (const goal of data.goals) {
+		for (const goal of secondaryData.goals) {
 			const key = `${goal.person_id}-${goal.metric_id}`;
 			const percentage = Math.min(100, Math.round((goal.current / goal.target) * 100));
 			map.set(key, {
@@ -480,18 +726,6 @@
 		}
 		
 		return map;
-	});
-
-	// Leaderboard data (sorted by total count across all metrics)
-	const leaderboard = $derived.by(() => {
-		if (!statsGrid || statsGrid.length === 0) return [];
-		
-		return [...statsGrid]
-			.map(row => {
-				const totalCount = Object.values(row.metrics).reduce((sum, m) => sum + m.count, 0);
-				return { ...row, totalCount };
-			})
-			.sort((a, b) => b.totalCount - a.totalCount);
 	});
 
 	// Metric-specific leaderboard (sorted by count for selected metric)
@@ -507,18 +741,12 @@
 			.sort((a, b) => b.metricCount - a.metricCount);
 	});
 
-	// Milestone thresholds for confetti
+	// Milestone thresholds for celebrations
 	const MILESTONES = [10, 25, 50, 75, 100, 150, 200, 250, 500, 1000];
 
-	// Trigger confetti for milestones
-	function checkMilestone(personName: string, metricName: string, newCount: number) {
+	function checkMilestone(personId: number, personName: string, metricName: string, newCount: number) {
 		if (MILESTONES.includes(newCount)) {
-			confettiMessage = `🎉 ${personName} hit ${newCount} ${metricName}!`;
-			showConfetti = true;
-			setTimeout(() => {
-				showConfetti = false;
-				confettiMessage = '';
-			}, 4000);
+			pushMilestoneCelebration(personId, metricName, newCount, personName);
 		}
 	}
 
@@ -537,12 +765,13 @@
 	}
 
 	async function showConfirmation(personId: number, personName: string, personEmoji: string, metricId: number, metricName: string) {
+		selectedSportTag = null;
 		// Check for duplicate first
 		duplicateWarning = null;
 		const today = new Date().toISOString().split('T')[0];
 		
 		try {
-			const res = await fetch(`${base}/api/entries/check-duplicate?personId=${personId}&metricId=${metricId}&entryDate=${today}`);
+			const res = await fetchWithTimeout(`${base}/api/entries/check-duplicate?personId=${personId}&metricId=${metricId}&entryDate=${today}`, { cache: 'no-store' }, 5000);
 			if (res.ok) {
 				const data = await res.json();
 				if (data.isDuplicate && data.existing) {
@@ -568,6 +797,7 @@
 
 	async function confirmAction() {
 		if (!pendingAction || !data.season) return;
+		if (isSportingAction() && !selectedSportTag) return;
 
 		loading = true;
 		
@@ -601,13 +831,13 @@
 					lastEntryId = (result.data as { id: number })?.id || null;
 					
 					// Check for new achievements
-					const data = result.data as { newAchievements?: { name: string; emoji: string }[] };
+					const data = result.data as { newAchievements?: { key: string; name: string; emoji: string; description?: string }[] };
 					if (data?.newAchievements && data.newAchievements.length > 0) {
-						newAchievements = data.newAchievements;
+						pushAchievementCelebrations(actionPersonId, actionPersonName, data.newAchievements);
 					}
 					
 					// Check for milestones
-					checkMilestone(actionPersonName, actionMetricName, newCount);
+					checkMilestone(actionPersonId, actionPersonName, actionMetricName, newCount);
 					
 					successMessage = `${pendingAction.personEmoji} +1 ${pendingAction.metricName} for ${pendingAction.personName}!`;
 				}
@@ -617,12 +847,11 @@
 				duplicateWarning = null;
 				
 				// Clear optimistic update after server data loads
-				await invalidateAll();
+				await refreshDashboard({ source: 'post-entry' });
 				clearOptimisticUpdate(actionPersonId, actionMetricName);
 				
 				setTimeout(() => {
 					successMessage = '';
-					newAchievements = [];
 				}, 3000);
 			} else {
 				// Revert on failure
@@ -649,7 +878,7 @@
 			if (res.ok) {
 				successMessage = '↩️ Entry undone!';
 				lastEntryId = null;
-				await invalidateAll();
+				await refreshDashboard({ source: 'undo-entry' });
 				
 				setTimeout(() => {
 					successMessage = '';
@@ -665,6 +894,66 @@
 		if (lower.includes('sport')) return '🏃';
 		if (lower.includes('cake')) return '🍰';
 		return '📊';
+	}
+
+	function getSportTagEmoji(tag: string): string {
+		switch (tag) {
+			case 'running': return '🏃';
+			case 'cycling': return '🚴';
+			case 'swimming': return '🏊';
+			case 'gym': return '🏋️';
+			case 'yoga': return '🧘';
+			case 'hiking': return '🥾';
+			case 'tennis': return '🎾';
+			case 'padel': return '🎾';
+			case 'football': return '⚽';
+			case 'basketball': return '🏀';
+			case 'hockey': return '🏑';
+			case 'volleyball': return '🏐';
+			case 'climbing': return '🧗';
+			case 'bouldering': return '🧗';
+			case 'skiing': return '⛷️';
+			case 'skating': return '⛸️';
+			case 'snowboarding': return '🏂';
+			case 'sledding': return '🛷';
+			case 'physio': return '🧑‍⚕️';
+			case 'boxing': return '🥊';
+			case 'martial-arts': return '🥋';
+			case 'dance': return '💃';
+			case 'hyrox': return '🏆';
+			default: return '🏅';
+		}
+	}
+
+	function parseSportTags(tags: string | null | undefined): string[] {
+		if (!tags) return [];
+
+		try {
+			const parsed = JSON.parse(tags);
+			if (Array.isArray(parsed)) {
+				return parsed.filter((tag): tag is string => typeof tag === 'string' && tag.length > 0);
+			}
+			if (typeof parsed === 'string' && parsed.length > 0) {
+				return [parsed];
+			}
+		} catch {
+			// Handle non-JSON tag format below
+		}
+
+		return tags
+			.split(',')
+			.map((tag) => tag.trim())
+			.filter((tag) => tag.length > 0);
+	}
+
+	function getTodayActivityIcon(entry: TodayEntry): string {
+		if (entry.metric_name.toLowerCase() !== 'sporting') {
+			return getMetricEmoji(entry.metric_name);
+		}
+
+		const tags = parseSportTags(entry.tags);
+		if (tags.length === 0) return getMetricEmoji(entry.metric_name);
+		return getSportTagEmoji(tags[0]);
 	}
 
 	// Get sport activity label from tag value
@@ -765,19 +1054,6 @@
 		animation: countBounce 0.5s ease-out;
 	}
 	
-	/* Confetti animation */
-	@keyframes confettiFall {
-		0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
-		100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-	}
-	
-	.confetti-piece {
-		position: fixed;
-		width: 10px;
-		height: 10px;
-		top: 0;
-		animation: confettiFall 3s ease-out forwards;
-	}
 </style>
 
 <div 
@@ -786,26 +1062,6 @@
 	ontouchmove={handleTouchMove}
 	ontouchend={handleTouchEnd}
 >
-	<!-- Confetti overlay -->
-	{#if showConfetti}
-		<div class="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-			{#each Array(50) as _, i}
-				<div 
-					class="confetti-piece rounded-sm"
-					style="
-						left: {Math.random() * 100}%;
-						background: {['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#fd79a8', '#a29bfe'][i % 8]};
-						animation-delay: {Math.random() * 0.5}s;
-						animation-duration: {2 + Math.random() * 2}s;
-					"
-				></div>
-			{/each}
-			<div class="absolute top-1/4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold animate-bounce">
-				{confettiMessage}
-			</div>
-		</div>
-	{/if}
-
 	<!-- Pull-to-refresh indicator -->
 	{#if pullDistance > 0 || isRefreshing}
 		<div 
@@ -848,7 +1104,7 @@
 				<!-- Sport activity selection -->
 				{#if isSportingAction()}
 					<div class="mb-3 sm:mb-4">
-						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">What activity?</p>
+						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">What activity? (select one)</p>
 						<div class="flex flex-wrap gap-1.5 sm:gap-2 justify-center max-h-40 sm:max-h-48 overflow-y-auto">
 							{#each SPORT_ACTIVITIES as activity}
 								<button
@@ -862,6 +1118,7 @@
 								</button>
 							{/each}
 						</div>
+						<p class="mt-2 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Each sporting activity must be logged as a separate entry.</p>
 					</div>
 				{/if}
 				
@@ -874,7 +1131,7 @@
 					</button>
 					<button
 						onclick={confirmAction}
-						disabled={loading}
+						disabled={loading || (isSportingAction() && !selectedSportTag)}
 						class="flex-1 py-2.5 sm:py-3 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-semibold rounded-xl disabled:opacity-50 transition-colors text-sm sm:text-base"
 					>
 						{loading ? '...' : duplicateWarning ? 'Add anyway' : 'Confirm'}
@@ -884,13 +1141,21 @@
 		</div>
 	{/if}
 
-	<!-- Offline/Pending indicator -->
-	{#if !online || offlinePending > 0}
+	<!-- Offline/Pending/Server indicator -->
+	{#if !online || offlinePending > 0 || (online && !serverReachable)}
 		<div class="fixed top-4 right-4 z-50 flex flex-col gap-2 items-end">
 			{#if !online}
 				<div class="bg-amber-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium flex items-center gap-2">
 					📴 Offline Mode
 				</div>
+			{/if}
+			{#if online && !serverReachable}
+				<button
+					onclick={() => void checkServerAvailabilityAndRecover()}
+					class="bg-rose-500 text-white px-3 sm:px-4 py-2 rounded-full shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2 hover:bg-rose-600 transition-colors"
+				>
+					🔄 Reconnecting to server… (tap to retry)
+				</button>
 			{/if}
 			{#if offlinePending > 0}
 				<button
@@ -898,7 +1163,7 @@
 						const result = await syncPendingEntries();
 						if (result.synced > 0) {
 							successMessage = `✅ Synced ${result.synced} entries!`;
-							await invalidateAll();
+							await refreshDashboard({ source: 'manual-sync' });
 							setTimeout(() => successMessage = '', 2000);
 						}
 					}}
@@ -925,12 +1190,6 @@
 				{/if}
 			</div>
 			
-			<!-- Achievement Unlocked Toast -->
-			{#if newAchievements.length > 0}
-				<div class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg text-sm sm:text-base font-medium animate-bounce text-center">
-					🏆 Achievement{newAchievements.length > 1 ? 's' : ''}: {newAchievements.map(a => `${a.emoji} ${a.name}`).join(', ')}
-				</div>
-			{/if}
 		</div>
 	{/if}
 
@@ -940,6 +1199,14 @@
 				<h1 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-1">📊 {translations?.dashboard.title ?? 'Dashboard'}</h1>
 				{#if data.season}
 					<p class="text-sm sm:text-base text-gray-500">{data.season.name}</p>
+				{/if}
+				{#if 'isAdmin' in data && data.isAdmin}
+					<a
+						href="{base}/admin/entries"
+						class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-lg text-xs sm:text-sm font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors"
+					>
+						📝 Manage Activities
+					</a>
 				{/if}
 			</div>
 			
@@ -1018,8 +1285,8 @@
 							<div>
 								<div class="font-medium text-xs sm:text-sm">{person.name}</div>
 								<div class="text-[10px] sm:text-xs opacity-80">
-									{person.metrics.map(m => getMetricEmoji(m)).join(' ')}
-									{person.metrics.length}x
+									{person.activityIcons.join(' ')}
+									{person.entryCount}x
 								</div>
 							</div>
 						</div>
@@ -1176,7 +1443,7 @@
 								{@const metricId = row.metrics[metric]?.metricId}
 								{@const optimisticCount = getOptimisticCount(row.personId, metric, row.metrics[metric]?.count || 0)}
 								{@const hasOptimistic = optimisticUpdates.has(`${row.personId}-${metric}`)}
-								{@const sparklineData = sparklineMap.get(`${row.personId}-${metricId}`) || []}
+								{@const sparklinePath = sparklinePathMap.get(`${row.personId}-${metricId}`) || ''}
 								{@const weeklyDiff = metricId ? getWeeklyDiff(row.personId, metricId) : null}
 								{@const streak = metricId ? getStreak(row.personId, metricId) : null}
 								{@const goal = metricId ? getGoalProgress(row.personId, metricId) : null}
@@ -1218,10 +1485,10 @@
 									{/if}
 									
 									<!-- Mini sparkline -->
-									{#if sparklineData.some(v => v > 0)}
+									{#if sparklinePath}
 										<svg class="w-full h-4 mt-1 opacity-50" viewBox="0 0 60 20" preserveAspectRatio="none">
 											<path 
-												d={getSparklinePath(sparklineData)} 
+												d={sparklinePath} 
 												fill="none" 
 												stroke="currentColor" 
 												stroke-width="2"
@@ -1295,7 +1562,7 @@
 									{@const metricId = row.metrics[metric]?.metricId}
 									{@const optimisticCount = getOptimisticCount(row.personId, metric, row.metrics[metric]?.count || 0)}
 									{@const hasOptimistic = optimisticUpdates.has(`${row.personId}-${metric}`)}
-									{@const sparklineData = sparklineMap.get(`${row.personId}-${metricId}`) || []}
+									{@const sparklinePath = sparklinePathMap.get(`${row.personId}-${metricId}`) || ''}
 									{@const weeklyDiff = metricId ? getWeeklyDiff(row.personId, metricId) : null}
 									{@const streak = metricId ? getStreak(row.personId, metricId) : null}
 									{@const goal = metricId ? getGoalProgress(row.personId, metricId) : null}
@@ -1339,10 +1606,10 @@
 											{/if}
 											
 											<!-- Mini sparkline -->
-											{#if sparklineData.some(v => v > 0)}
+											{#if sparklinePath}
 												<svg class="w-16 h-4 opacity-60" viewBox="0 0 60 20" preserveAspectRatio="none">
 													<path 
-														d={getSparklinePath(sparklineData)} 
+														d={sparklinePath} 
 														fill="none" 
 														stroke="currentColor" 
 														stroke-width="2"
@@ -1400,13 +1667,13 @@
 		{/if}
 
 		<!-- Recent Entries -->
-		{#if data.recentEntries?.length > 0}
+		{#if secondaryData.recentEntries.length > 0}
 			<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
 				<div class="bg-gray-50 dark:bg-gray-700 px-3 sm:px-4 py-2 sm:py-3 border-b dark:border-gray-600">
-					<h2 class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">🕐 Recent Entries</h2>
+					<h2 class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200 flex items-center gap-2">🕐 Recent Entries {#if secondaryLoading}<span class="text-xs text-gray-400">(updating...)</span>{/if}</h2>
 				</div>
 				<div class="divide-y dark:divide-gray-700">
-					{#each data.recentEntries.slice(0, 8) as entry}
+					{#each secondaryData.recentEntries.slice(0, 8) as entry}
 						<div class="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
 							<span class="text-lg sm:text-xl flex-shrink-0">{entry.person_emoji || '👤'}</span>
 							<div class="flex-1 min-w-0">

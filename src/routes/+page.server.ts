@@ -1,6 +1,15 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getSeasonStats, getActiveMetrics, getActivePeople, getRecentEntries, getDailyCountsForSparkline, getTodayEntries, getWeeklyComparison, getStreaksSimple, getGoalsWithProgress } from '$lib/server/db';
+import { getActiveSeason, getSeasonStatsFiltered, getActiveMetrics, getActivePeople } from '$lib/server/db';
+
+type DashboardPeriod = 'today' | 'week' | 'month' | 'all';
+
+function parsePeriod(value: string | null): DashboardPeriod {
+	if (value === 'today' || value === 'week' || value === 'month' || value === 'all') {
+		return value;
+	}
+	return 'all';
+}
 
 // Type guards for data validation
 function isValidSeason(data: unknown): data is { id: number; year: number; name: string } {
@@ -19,7 +28,11 @@ function isValidArray(data: unknown, name: string): data is unknown[] {
 	return true;
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, depends, url }) => {
+	depends('app:dashboard');
+
+	const period = parsePeriod(url.searchParams.get('period'));
+
 	console.log('📄 +page.server.ts load() called, role:', locals.role);
 	
 	// Allow both tracker and admin roles to view the dashboard
@@ -35,7 +48,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		
 		if (!season) {
 			console.log('📄 No active season found, returning empty data');
-			return { authorized: true, season: null, stats: [], metrics: [], people: [], recentEntries: [], sparklineData: [], todayEntries: [], weeklyComparison: [], streaks: [], goals: [] };
+			return {
+				authorized: true,
+				isAdmin: locals.role === 'admin',
+				season: null,
+				selectedPeriod: period,
+				stats: [],
+				metrics: [],
+				people: [],
+				recentEntries: [],
+				sparklineData: [],
+				todayEntries: [],
+				weeklyComparison: [],
+				streaks: [],
+				goals: []
+			};
 		}
 
 		if (!isValidSeason(season)) {
@@ -45,7 +72,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 		console.log('📄 Fetching dashboard data for season:', season.id);
 		
-		const stats = getSeasonStats(season.id);
+		const stats = getSeasonStatsFiltered(season.id, period);
 		console.log('📄 Stats fetched:', Array.isArray(stats) ? stats.length + ' items' : typeof stats);
 		
 		const metrics = getActiveMetrics();
@@ -53,36 +80,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		
 		const people = getActivePeople();
 		console.log('📄 People fetched:', Array.isArray(people) ? people.length + ' items' : typeof people);
-		
-		const recentEntries = getRecentEntries(season.id, 10);
-		console.log('📄 Recent entries fetched:', Array.isArray(recentEntries) ? recentEntries.length + ' items' : typeof recentEntries);
-		
-		const sparklineData = getDailyCountsForSparkline(season.id, 7);
-		console.log('📄 Sparkline data fetched:', Array.isArray(sparklineData) ? sparklineData.length + ' items' : typeof sparklineData);
-		
-		const todayEntries = getTodayEntries(season.id);
-		console.log('📄 Today entries fetched:', Array.isArray(todayEntries) ? todayEntries.length + ' items' : typeof todayEntries);
-		
-		const weeklyComparison = getWeeklyComparison(season.id);
-		console.log('📄 Weekly comparison fetched:', Array.isArray(weeklyComparison) ? weeklyComparison.length + ' items' : typeof weeklyComparison);
-		
-		const streaks = getStreaksSimple(season.id);
-		console.log('📄 Streaks fetched:', Array.isArray(streaks) ? streaks.length + ' items' : typeof streaks);
-		
-		const goals = getGoalsWithProgress(season.id);
-		console.log('📄 Goals fetched:', Array.isArray(goals) ? goals.length + ' items' : typeof goals);
 
 		// Validate all arrays
 		const validations = [
 			{ data: stats, name: 'stats' },
 			{ data: metrics, name: 'metrics' },
-			{ data: people, name: 'people' },
-			{ data: recentEntries, name: 'recentEntries' },
-			{ data: sparklineData, name: 'sparklineData' },
-			{ data: todayEntries, name: 'todayEntries' },
-			{ data: weeklyComparison, name: 'weeklyComparison' },
-			{ data: streaks, name: 'streaks' },
-			{ data: goals, name: 'goals' }
+			{ data: people, name: 'people' }
 		];
 
 		for (const { data, name } of validations) {
@@ -95,16 +98,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 		return {
 			authorized: true,
+			isAdmin: locals.role === 'admin',
 			season,
+			selectedPeriod: period,
 			stats,
 			metrics,
 			people,
-			recentEntries,
-			sparklineData,
-			todayEntries,
-			weeklyComparison,
-			streaks,
-			goals
+			recentEntries: [],
+			sparklineData: [],
+			todayEntries: [],
+			weeklyComparison: [],
+			streaks: [],
+			goals: []
 		};
 	} catch (e) {
 		console.error('❌ Error loading dashboard data:', e);

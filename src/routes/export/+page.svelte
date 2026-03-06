@@ -71,7 +71,7 @@
 
 	function selectPerson(id: number) {
 		selectedPerson = id;
-		goto(`${base}/export?person=${id}`);
+		void goto(`${base}/export?person=${id}`, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	function printPage() {
@@ -114,6 +114,12 @@
 </svelte:head>
 
 <div class="min-h-screen bg-gray-100 p-4 print:bg-white print:p-0">
+	{#if data.authorized === false}
+		<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
+			<div class="text-6xl mb-4">🔒</div>
+			<p class="text-gray-500">Please log in to view export.</p>
+		</div>
+	{:else}
 	<!-- Header - no print -->
 	<div class="no-print max-w-4xl mx-auto mb-6">
 		<div class="bg-white rounded-xl shadow-lg p-4 flex items-center justify-between">
@@ -308,5 +314,6 @@
 				</div>
 			</div>
 		{/if}
+	{/if}
 	{/if}
 </div>

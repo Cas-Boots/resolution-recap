@@ -10,9 +10,65 @@ import {
 	undeleteEntry,
 	undeleteEntries,
 	getActiveSeason,
+	getAllMetrics,
 	checkAndUnlockAchievements,
 	ACHIEVEMENTS
 } from '$lib/server/db';
+
+function parseTagList(rawTags: unknown): string[] {
+	if (rawTags === undefined || rawTags === null) return [];
+
+	if (Array.isArray(rawTags)) {
+		return rawTags
+			.map((tag) => String(tag).trim())
+			.filter(Boolean);
+	}
+
+	const value = String(rawTags).trim();
+	if (!value) return [];
+
+	try {
+		const parsed = JSON.parse(value);
+		if (Array.isArray(parsed)) {
+			return parsed
+				.map((tag) => String(tag).trim())
+				.filter(Boolean);
+		}
+	} catch {
+		// fallback to comma-separated parsing
+	}
+
+	return value
+		.split(',')
+		.map((tag) => tag.trim())
+		.filter(Boolean);
+}
+
+function normalizeSingleSportTag(metricId: number, rawTags: unknown): { ok: true; tags: string | null } | { ok: false; error: string } {
+	const metric = getAllMetrics().find((item) => item.id === metricId);
+	const isSporting = (metric?.name || '').toLowerCase() === 'sporting';
+	const parsedTags = parseTagList(rawTags);
+
+	if (!isSporting) {
+		return { ok: true, tags: parsedTags.length > 0 ? parsedTags.join(',') : null };
+	}
+
+	if (parsedTags.length === 0) {
+		return {
+			ok: false,
+			error: 'Sporting entries require exactly one activity type.'
+		};
+	}
+
+	if (parsedTags.length > 1) {
+		return {
+			ok: false,
+			error: 'Only one sporting activity is allowed per entry. Add separate entries for multiple activities.'
+		};
+	}
+
+	return { ok: true, tags: parsedTags[0] || null };
+}
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (locals.role !== 'tracker' && locals.role !== 'admin') {
@@ -60,7 +116,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'No active season' }, { status: 400 });
 	}
 
-	const entry = createEntry(season.id, personId, metricId, entryDate, notes, tags, 'tracker');
+	const normalized = normalizeSingleSportTag(metricId, tags);
+	if (!normalized.ok) {
+		return json({ error: normalized.error }, { status: 400 });
+	}
+
+	const entry = createEntry(season.id, personId, metricId, entryDate, notes, normalized.tags || undefined, 'tracker');
 	
 	// Check for new achievements
 	const newAchievements = checkAndUnlockAchievements(season.id, personId);
@@ -74,8 +135,13 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const { id, personId, metricId, entryDate } = await request.json();
-	updateEntry(id, personId, metricId, entryDate, locals.role || 'tracker');
+	const { id, personId, metricId, entryDate, tags } = await request.json();
+	const normalized = normalizeSingleSportTag(metricId, tags);
+	if (!normalized.ok) {
+		return json({ error: normalized.error }, { status: 400 });
+	}
+
+	updateEntry(id, personId, metricId, entryDate, locals.role || 'tracker', normalized.tags);
 	return json({ success: true });
 };
 

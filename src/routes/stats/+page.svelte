@@ -5,6 +5,9 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { getRank, getRankDisplay } from '$lib/ranking';
+	import StatsCalendarTab from '$lib/components/stats/StatsCalendarTab.svelte';
+	import StatsInsightsTab from '$lib/components/stats/StatsInsightsTab.svelte';
+	import StatsCompareTab from '$lib/components/stats/StatsCompareTab.svelte';
 	import { locale, t } from '$lib/stores/locale';
 	import type { Translations, Locale } from '$lib/i18n';
 	import { translateMetric } from '$lib/i18n';
@@ -45,9 +48,16 @@
 	let selectedCalendarPerson = $state<number | null>(null);
 	let selectedCalendarMetric = $state<number | null>(null);
 	let isLoading = $state(false);
-	let showMilestone = $state<{ show: boolean; emoji: string; message: string }>({ show: false, emoji: '', message: '' });
 	let comparePersons = $state<[number | null, number | null]>([null, null]);
 	let printMode = $state(false);
+	let dailyStatsState = $state(data.dailyStats || []);
+	let dayOfWeekStatsState = $state(data.dayOfWeekStats || []);
+	let consistencyScoresState = $state(data.consistencyScores || []);
+	let personalBestsState = $state(data.personalBests || {});
+	let lazyLoadedTabs = $state(new Set<string>([
+		...(data.dailyStats && data.dailyStats.length > 0 ? ['calendar'] : []),
+		...(data.dayOfWeekStats && data.dayOfWeekStats.length > 0 ? ['insights'] : [])
+	]));
 
 	// Group stats by person
 	interface StatRow {
@@ -100,32 +110,6 @@
 		return map;
 	});
 
-	// Check for milestone achievements
-	$effect(() => {
-		if (browser && data.goals && data.stats) {
-			for (const goal of data.goals) {
-				const current = statsGrid.find(s => s.personId === goal.person_id)?.metrics[data.metrics?.find(m => m.id === goal.metric_id)?.name || ''] || 0;
-				const progress = Math.round((current / goal.target) * 100);
-				
-				// Check for milestone thresholds
-				const milestones = [25, 50, 75, 100];
-				for (const milestone of milestones) {
-					const storageKey = `milestone_${goal.person_id}_${goal.metric_id}_${milestone}`;
-					if (progress >= milestone && !sessionStorage.getItem(storageKey)) {
-						sessionStorage.setItem(storageKey, 'true');
-						showMilestone = {
-							show: true,
-							emoji: milestone === 100 ? '🎉' : milestone === 75 ? '🔥' : milestone === 50 ? '⭐' : '🚀',
-							message: `${goal.person_name} reached ${milestone}% of their goal!`
-						};
-						setTimeout(() => { showMilestone = { show: false, emoji: '', message: '' }; }, 4000);
-						break;
-					}
-				}
-			}
-		}
-	});
-
 	// Monthly data grouped
 	const monthlyData = $derived.by(() => {
 		if (!data.monthlyStats) return [];
@@ -150,13 +134,20 @@
 	});
 
 	// Trend data for chart (by metric, by month)
+	const trendMonths = $derived.by(() => {
+		if (!data.monthlyStats || data.monthlyStats.length === 0) return [];
+
+		const uniqueMonths = Array.from(new Set(data.monthlyStats.map((stat) => stat.month))).sort((a, b) => a.localeCompare(b));
+		return getContinuousMonths(uniqueMonths);
+	});
+
 	const trendData = $derived.by(() => {
-		if (!data.monthlyStats || !data.metrics) return {};
+		if (!data.monthlyStats || !data.metrics || trendMonths.length === 0) return {};
 		
 		const byMetric: Record<string, { month: string; total: number }[]> = {};
 		
 		for (const metric of data.metrics) {
-			const monthTotals = new Map<string, number>();
+			const monthTotals = new Map<string, number>(trendMonths.map((month) => [month, 0]));
 			
 			for (const stat of data.monthlyStats) {
 				if (stat.metric_name === metric.name) {
@@ -165,18 +156,57 @@
 				}
 			}
 			
-			byMetric[metric.name] = Array.from(monthTotals.entries())
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([month, total]) => ({ month, total }));
+			byMetric[metric.name] = trendMonths.map((month) => ({
+				month,
+				total: monthTotals.get(month) || 0
+			}));
 		}
 		
 		return byMetric;
 	});
 
+	function parseMonthKey(monthStr: string): Date {
+		const [year, month] = monthStr.split('-').map(Number);
+		return new Date(year, month - 1, 1);
+	}
+
+	function toMonthKey(date: Date): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		return `${year}-${month}`;
+	}
+
+	function getContinuousMonths(sortedMonths: string[]): string[] {
+		if (sortedMonths.length === 0) return [];
+
+		const first = parseMonthKey(sortedMonths[0]);
+		const last = parseMonthKey(sortedMonths[sortedMonths.length - 1]);
+		const months: string[] = [];
+		const cursor = new Date(first);
+
+		while (cursor <= last) {
+			months.push(toMonthKey(cursor));
+			cursor.setMonth(cursor.getMonth() + 1);
+		}
+
+		return months;
+	}
+
 	function formatMonth(monthStr: string): string {
 		const [year, month] = monthStr.split('-');
 		const date = new Date(parseInt(year), parseInt(month) - 1);
 		return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+	}
+
+	function formatMonthShort(monthStr: string): string {
+		const [year, month] = monthStr.split('-');
+		const date = new Date(parseInt(year), parseInt(month) - 1);
+		return date.toLocaleDateString('en-US', { month: 'short' });
+	}
+
+	function getTrendBarHeightPx(total: number, maxValue: number, maxHeight: number, minHeight = 8): number {
+		if (maxValue <= 0 || total <= 0) return minHeight;
+		return Math.max(minHeight, Math.round((total / maxValue) * maxHeight));
 	}
 
 	function getProgressPercent(personId: number, metricId: number, current: number): number {
@@ -354,7 +384,55 @@
 		if (browser) {
 			const params = new URLSearchParams(window.location.search);
 			params.set('tab', tab);
+
+			if (tab === 'compare') {
+				window.history.replaceState({}, '', `${base}/stats?${params.toString()}`);
+				return;
+			}
+
+			if (tab === 'calendar' || tab === 'insights') {
+				window.history.replaceState({}, '', `${base}/stats?${params.toString()}`);
+				void ensureLazyTabData(tab);
+				return;
+			}
+
 			goto(`${base}/stats?${params.toString()}`, { replaceState: true, noScroll: true });
+		}
+	}
+
+	async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+		try {
+			return await fetch(input, { ...init, signal: controller.signal });
+		} finally {
+			clearTimeout(timeoutId);
+		}
+	}
+
+	async function ensureLazyTabData(tab: 'calendar' | 'insights') {
+		if (!browser || lazyLoadedTabs.has(tab)) return;
+
+		isLoading = true;
+		try {
+			const res = await fetchWithTimeout(`${base}/api/stats/tab?tab=${tab}`, { cache: 'no-store' }, 8000);
+			if (!res.ok) return;
+			const payload = await res.json();
+
+			if (tab === 'calendar') {
+				dailyStatsState = payload?.payload?.dailyStats || [];
+			} else {
+				dayOfWeekStatsState = payload?.payload?.dayOfWeekStats || [];
+				consistencyScoresState = payload?.payload?.consistencyScores || [];
+				personalBestsState = payload?.payload?.personalBests || {};
+			}
+
+			const next = new Set(lazyLoadedTabs);
+			next.add(tab);
+			lazyLoadedTabs = next;
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -572,16 +650,15 @@
 
 	// Calendar heatmap data
 	const calendarData = $derived.by(() => {
-		if (!data.dailyStats || !data.season) return { days: [], maxCount: 0, weeks: [] };
+		if (!dailyStatsState || !data.season) return { days: [], maxCount: 0, weeks: [] };
 		
 		const year = data.season.year;
 		const countMap = new Map<string, number>();
 		
 		// Filter by selected person and/or metric
-		// Note: dailyStats doesn't have metric info, so we'll need to filter differently
-		// For now, filter by person only in calendar view
-		for (const stat of data.dailyStats) {
+		for (const stat of dailyStatsState) {
 			if (selectedCalendarPerson && stat.person_id !== selectedCalendarPerson) continue;
+			if (selectedCalendarMetric && stat.metric_id !== selectedCalendarMetric) continue;
 			const current = countMap.get(stat.date) || 0;
 			countMap.set(stat.date, current + stat.count);
 		}
@@ -677,6 +754,11 @@ return { days: allDays, maxCount, weeks };
 		return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 	}
 
+	function formatShortDate(dateStr: string): string {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	}
+
 	// Calculate month label positions (Monday-based weeks)
 	const monthLabels = $derived.by(() => {
 		if (!data.season || !calendarData.weeks.length) return [];
@@ -704,16 +786,6 @@ return { days: allDays, maxCount, weeks };
 		return labels;
 	});
 </script>
-
-<!-- Milestone celebration overlay -->
-{#if showMilestone.show}
-	<div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none animate-fade-in">
-		<div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-6 rounded-2xl shadow-2xl transform animate-bounce-in">
-			<div class="text-6xl text-center mb-2">{showMilestone.emoji}</div>
-			<div class="text-xl font-bold text-center">{showMilestone.message}</div>
-		</div>
-	</div>
-{/if}
 
 <!-- Loading overlay -->
 {#if isLoading}
@@ -881,7 +953,7 @@ return { days: allDays, maxCount, weeks };
 						.sort((a, b) => b.projected - a.projected)}
 					{@const getProjectedRank = (personId: number) => projectedRanking.findIndex(r => r.personId === personId) + 1}
 					{@const trend = trendData[metric.name] || []}
-					{@const maxVal = Math.max(...trend.map(t => t.total), 1)}
+					{@const maxVal = Math.max(...trend.map(t => t.total), 0)}
 					{@const daysPassed = getDaysPassed()}
 					{@const blendInfo = getBlendInfo()}
 					
@@ -985,12 +1057,12 @@ return { days: allDays, maxCount, weeks };
 								</div>
 								<div class="flex items-end gap-2 h-16 px-1">
 									{#each trend as point, idx}
-										{@const barHeight = Math.max(8, (point.total / maxVal) * 100)}
+										{@const barHeight = getTrendBarHeightPx(point.total, maxVal, 44, 6)}
 										{@const isLast = idx === trend.length - 1}
 										<div class="flex-1 flex flex-col items-center group relative">
 											<div 
 												class="w-full rounded-md transition-all duration-500 hover:scale-105 relative overflow-hidden {isLast ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 dark:from-indigo-500 dark:to-indigo-400 shadow-lg shadow-indigo-500/30' : 'bg-gradient-to-t from-indigo-300 to-indigo-200 dark:from-indigo-600 dark:to-indigo-500'}"
-												style="height: {barHeight}%; min-height: 4px"
+												style="height: {barHeight}px"
 											>
 												{#if point.total > 0 && barHeight > 25}
 													<div class="absolute inset-0 flex items-center justify-center">
@@ -998,7 +1070,7 @@ return { days: allDays, maxCount, weeks };
 													</div>
 												{/if}
 											</div>
-											<div class="text-[9px] text-gray-400 mt-1">{point.month.split('-')[1]}</div>
+											<div class="text-[9px] text-gray-400 mt-1">{formatMonthShort(point.month)}</div>
 											<div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
 												{formatMonth(point.month)}: {point.total}
 											</div>
@@ -1063,7 +1135,9 @@ return { days: allDays, maxCount, weeks };
 											{@const projected = getProjectedTotal(person.total, person.person_name)}
 											{@const baseline2025 = data.baselines2025?.[normalizeName(person.person_name)]?.final_2025 || 0}
 											{@const weeklyPace = getBlendedWeeklyPace(person.total, person.person_name)}
-											{@const dailyPace = getBlendedDailyPace(person.total, person.person_name)}
+											{@const sportingMetric = (data.metrics || []).find((m) => m.name.toLowerCase() === 'sporting')}
+											{@const sportingGoal = sportingMetric ? goalsMap.get(`${person.person_id}-${sportingMetric.id}`) : undefined}
+											{@const goalAchievedPercent = sportingGoal && sportingGoal > 0 ? Math.round((person.total / sportingGoal) * 100) : null}
 											{@const displayMax = Math.max(projected, baseline2025, maxCurrent * 2, 10)}
 											{@const progressWidth = Math.min(100, (person.total / displayMax) * 100)}
 											{@const projectedWidth = Math.min(100, (projected / displayMax) * 100)}
@@ -1145,8 +1219,14 @@ return { days: allDays, maxCount, weeks };
 														<div class="text-xs text-gray-500 dark:text-gray-400">per week</div>
 													</div>
 													<div class="text-center">
-														<div class="text-lg font-bold text-gray-700 dark:text-gray-200">{dailyPace}</div>
-														<div class="text-xs text-gray-500 dark:text-gray-400">per day</div>
+														<div class="text-lg font-bold text-gray-700 dark:text-gray-200">
+															{#if goalAchievedPercent !== null}
+																{goalAchievedPercent}%
+															{:else}
+																—
+															{/if}
+														</div>
+														<div class="text-xs text-gray-500 dark:text-gray-400">goal achieved</div>
 													</div>
 													<div class="text-center">
 														<div class="text-lg font-bold" style="color: {color}">{projected}</div>
@@ -1314,6 +1394,8 @@ return { days: allDays, maxCount, weeks };
 			{#if cumulativeChartData.datasets.length > 0}
 				{@const maxValue = Math.max(...cumulativeChartData.datasets.flatMap(d => d.data.map(p => p.value)), 1)}
 				{@const labels = cumulativeChartData.labels}
+				{@const labelCountDenominator = Math.max(labels.length - 1, 1)}
+				{@const dateIndexMap = new Map(labels.map((label, index) => [label, index]))}
 				{@const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']}
 				<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 transition-colors duration-200">
 					<div class="flex items-center justify-between mb-4">
@@ -1340,8 +1422,8 @@ return { days: allDays, maxCount, weeks };
 						{/each}
 					</div>
 					
-					<div class="h-56 relative">
-						<svg class="w-full h-full" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid meet">
+					<div class="h-56 relative overflow-x-auto">
+						<svg class="h-full min-w-[760px] w-full" viewBox="0 0 800 220" preserveAspectRatio="none" role="img" aria-label="Cumulative progress by person over time">
 							<defs>
 								<!-- Gradient definitions for each line -->
 								{#each colors as color, i}
@@ -1374,12 +1456,12 @@ return { days: allDays, maxCount, weeks };
 							{#each cumulativeChartData.datasets as dataset, i}
 								{@const color = colors[i % 6]}
 								{@const points = dataset.data.map((point, idx) => {
-									const x = 50 + (labels.indexOf(point.date) / Math.max(labels.length - 1, 1)) * 730;
+									const x = 50 + ((dateIndexMap.get(point.date) ?? 0) / labelCountDenominator) * 730;
 									const y = 190 - (point.value / maxValue) * 170;
 									return `${x},${y}`;
 								}).join(' ')}
-								{@const firstX = 50 + (labels.indexOf(dataset.data[0]?.date || '') / Math.max(labels.length - 1, 1)) * 730}
-								{@const lastX = 50 + (labels.indexOf(dataset.data[dataset.data.length - 1]?.date || '') / Math.max(labels.length - 1, 1)) * 730}
+								{@const firstX = 50 + ((dateIndexMap.get(dataset.data[0]?.date || '') ?? 0) / labelCountDenominator) * 730}
+								{@const lastX = 50 + ((dateIndexMap.get(dataset.data[dataset.data.length - 1]?.date || '') ?? 0) / labelCountDenominator) * 730}
 								<polygon
 									fill="url(#lineGrad{i})"
 									points="{firstX},190 {points} {lastX},190"
@@ -1397,7 +1479,7 @@ return { days: allDays, maxCount, weeks };
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									points={dataset.data.map((point, idx) => {
-										const x = 50 + (labels.indexOf(point.date) / Math.max(labels.length - 1, 1)) * 730;
+										const x = 50 + ((dateIndexMap.get(point.date) ?? 0) / labelCountDenominator) * 730;
 										const y = 190 - (point.value / maxValue) * 170;
 										return `${x},${y}`;
 									}).join(' ')}
@@ -1407,7 +1489,7 @@ return { days: allDays, maxCount, weeks };
 								<!-- End point marker -->
 								{@const lastPoint = dataset.data[dataset.data.length - 1]}
 								{#if lastPoint}
-									{@const lastX = 50 + (labels.indexOf(lastPoint.date) / Math.max(labels.length - 1, 1)) * 730}
+									{@const lastX = 50 + ((dateIndexMap.get(lastPoint.date) ?? 0) / labelCountDenominator) * 730}
 									{@const lastY = 190 - (lastPoint.value / maxValue) * 170}
 									<circle 
 										cx={lastX} 
@@ -1423,9 +1505,9 @@ return { days: allDays, maxCount, weeks };
 							
 							<!-- X-axis labels -->
 							{#if labels.length > 0}
-								<text x="50" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500">{labels[0]}</text>
+								<text x="50" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500">{formatShortDate(labels[0])}</text>
 								{#if labels.length > 1}
-									<text x="780" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500" text-anchor="end">{labels[labels.length - 1]}</text>
+									<text x="780" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500" text-anchor="end">{formatShortDate(labels[labels.length - 1])}</text>
 								{/if}
 							{/if}
 						</svg>
@@ -1602,7 +1684,7 @@ return { days: allDays, maxCount, weeks };
 				{@const monthlyChamp = [...streaks].sort((a, b) => b.longest_monthly_streak - a.longest_monthly_streak)[0]}
 				{@const mostActive = [...streaks].sort((a, b) => b.total_entries - a.total_entries)[0]}
 				{@const trend = trendData[metric.name] || []}
-				{@const maxVal = Math.max(...trend.map(t => t.total), 1)}
+				{@const maxVal = Math.max(...trend.map(t => t.total), 0)}
 				{@const hasAnyEntries = streaks.some(s => s.total_entries > 0)}
 				
 				<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-colors duration-200">
@@ -1804,7 +1886,7 @@ return { days: allDays, maxCount, weeks };
 								</div>
 								<div class="flex items-end gap-2 sm:gap-3 h-28 px-2">
 									{#each trend as point, idx}
-										{@const barHeight = Math.max(10, (point.total / maxVal) * 100)}
+										{@const barHeight = getTrendBarHeightPx(point.total, maxVal, 72, 10)}
 										{@const isLast = idx === trend.length - 1}
 										{@const isBest = point.total === maxVal && maxVal > 0}
 										<div class="flex-1 flex flex-col items-center gap-1 group relative">
@@ -1813,7 +1895,7 @@ return { days: allDays, maxCount, weeks };
 											</div>
 											<div 
 												class="w-full rounded-lg transition-all duration-500 hover:scale-105 relative overflow-hidden shadow-sm {isBest ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-800' : ''}"
-												style="height: {barHeight}%; min-height: 8px; background: linear-gradient(to top, {isLast ? '#f97316, #fb923c' : isBest ? '#f59e0b, #fbbf24' : '#fdba74, #fed7aa'})"
+												style="height: {barHeight}px; background: linear-gradient(to top, {isLast ? '#f97316, #fb923c' : isBest ? '#f59e0b, #fbbf24' : '#fdba74, #fed7aa'})"
 											>
 												{#if isBest}
 													<div class="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs">
@@ -1821,9 +1903,7 @@ return { days: allDays, maxCount, weeks };
 													</div>
 												{/if}
 											</div>
-											<div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-												{formatMonth(point.month).slice(0, 3)}
-											</div>
+											<div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">{formatMonthShort(point.month)}</div>
 											<div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
 												<div class="font-semibold">{formatMonth(point.month)}</div>
 												<div class="text-gray-300">{point.total} entries</div>
@@ -1853,319 +1933,32 @@ return { days: allDays, maxCount, weeks };
 				</ul>
 			</div>
 		{:else if activeTab === 'calendar'}
-			<!-- Calendar Heatmap -->
-			<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6">
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-lg font-bold text-gray-800 dark:text-white">📆 Activity Calendar</h2>
-					<select
-						bind:value={selectedCalendarPerson}
-						class="px-3 py-2 border dark:border-gray-600 rounded-lg focus:border-indigo-500 focus:outline-none text-sm bg-white dark:bg-gray-700 dark:text-white"
-					>
-						<option value={null}>All People</option>
-						{#each data.people || [] as person}
-							<option value={person.id}>{person.emoji || '👤'} {person.name}</option>
-						{/each}
-					</select>
-				</div>
-				
-				<!-- Month labels -->
-				<div class="mb-1 ml-6 sm:ml-10">
-					<div class="flex text-[8px] sm:text-xs text-gray-500 dark:text-gray-400 relative" style="min-width: fit-content;">
-						{#each monthLabels as label}
-							<div 
-								class="absolute" 
-								style="left: calc({label.weekIndex} * (100% / {calendarData.weeks.length}))"
-							>
-								{label.month}
-							</div>
-						{/each}
-						<!-- Spacer to ensure container has proper width -->
-						<div class="w-full h-4"></div>
-					</div>
-				</div>
-				
-				<!-- Heatmap grid -->
-				<div class="flex gap-[2px]">
-					<!-- Day of week labels -->
-					<div class="flex flex-col gap-[1px] sm:gap-[2px] text-[8px] sm:text-[10px] text-gray-500 dark:text-gray-400 pr-1 flex-shrink-0">
-						<div class="h-[8px] sm:h-[10px] flex items-center">M</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">T</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">W</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">T</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">F</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">S</div>
-						<div class="h-[8px] sm:h-[10px] flex items-center">S</div>
-					</div>
-					
-					<!-- Calendar grid -->
-					<div class="flex-1 flex gap-[1px] sm:gap-[2px]">
-						{#each calendarData.weeks as week}
-							<div class="flex flex-col gap-[1px] sm:gap-[2px] flex-1">
-								{#each week as day}
-									{#if day}
-										{@const month = parseInt(day.date.split('-')[1])}
-										{@const isOddMonth = month % 2 === 1}
-										<div 
-											class="aspect-square w-full max-w-[10px] sm:max-w-[12px] rounded-[2px] {getHeatmapColor(day.count, calendarData.maxCount, isOddMonth)} cursor-pointer hover:ring-1 hover:ring-indigo-400"
-											title="{formatDateForTooltip(day.date)}: {day.count} {day.count === 1 ? 'entry' : 'entries'}"
-										></div>
-									{:else}
-										<div class="aspect-square w-full max-w-[10px] sm:max-w-[12px]"></div>
-									{/if}
-								{/each}
-							</div>
-						{/each}
-					</div>
-				</div>
-				
-				<!-- Legend -->
-				<div class="flex items-center justify-end gap-1 sm:gap-2 mt-4 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-					<span>Less</span>
-					<div class="w-[8px] h-[8px] sm:w-[12px] sm:h-[12px] rounded-[2px] bg-gray-200 dark:bg-gray-600"></div>
-					<div class="w-[8px] h-[8px] sm:w-[12px] sm:h-[12px] rounded-[2px] bg-green-200 dark:bg-green-900"></div>
-					<div class="w-[8px] h-[8px] sm:w-[12px] sm:h-[12px] rounded-[2px] bg-green-400 dark:bg-green-700"></div>
-					<div class="w-[8px] h-[8px] sm:w-[12px] sm:h-[12px] rounded-[2px] bg-green-500 dark:bg-green-500"></div>
-					<div class="w-[8px] h-[8px] sm:w-[12px] sm:h-[12px] rounded-[2px] bg-green-600 dark:bg-green-400"></div>
-					<span>More</span>
-				</div>
-				
-				<!-- Stats summary -->
-				<div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-3 gap-4 text-center">
-					<div>
-						<div class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">{calendarData.days.filter(d => d.count > 0).length}</div>
-						<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Active Days</div>
-					</div>
-					<div>
-						<div class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">{calendarData.days.reduce((sum, d) => sum + d.count, 0)}</div>
-						<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Total Entries</div>
-					</div>
-					<div>
-						<div class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">{calendarData.maxCount}</div>
-						<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Best Day</div>
-					</div>
-				</div>
-			</div>
+			<StatsCalendarTab
+				{calendarData}
+				{monthLabels}
+				people={data.people || []}
+				metrics={data.metrics || []}
+				bind:selectedCalendarPerson
+				bind:selectedCalendarMetric
+				{getHeatmapColor}
+				{formatDateForTooltip}
+				{getTranslatedMetricName}
+			/>
 
 		{:else if activeTab === 'insights'}
-			<!-- Insights Tab -->
-			<div class="space-y-6">
-				<!-- Day of Week Analysis -->
-				<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
-					<h3 class="font-semibold text-gray-800 dark:text-white mb-4">📊 Day of Week Insights</h3>
-					<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">When do entries happen most frequently?</p>
-					
-					{#if data.dayOfWeekStats && data.dayOfWeekStats.length > 0}
-						{@const maxDayCount = Math.max(...data.dayOfWeekStats.map(d => d.count), 1)}
-						{@const busiestDay = data.dayOfWeekStats.reduce((a, b) => a.count > b.count ? a : b)}
-						
-						<div class="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-							<span class="text-indigo-800 dark:text-indigo-200">
-								🏆 <strong>{busiestDay.day}</strong> is the most active day with <strong>{busiestDay.count}</strong> entries ({busiestDay.percentage}%)
-							</span>
-						</div>
-						
-						<div class="space-y-2">
-							{#each data.dayOfWeekStats as day}
-								<div class="flex items-center gap-3">
-									<div class="w-12 text-sm text-gray-600 dark:text-gray-400">{day.day.substring(0, 3)}</div>
-									<div class="flex-1 h-6 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-										<div 
-											class="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-700"
-											style="width: {(day.count / maxDayCount) * 100}%"
-										></div>
-									</div>
-									<div class="w-16 text-right text-sm text-gray-600 dark:text-gray-400">
-										{day.count} <span class="text-xs">({day.percentage}%)</span>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="text-center text-gray-500 dark:text-gray-400 py-8">
-							No data available yet
-						</div>
-					{/if}
-				</div>
-
-				<!-- Consistency Scores -->
-				<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
-					<h3 class="font-semibold text-gray-800 dark:text-white mb-4">🎯 Consistency Scores</h3>
-					<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">How regularly are entries being logged?</p>
-					
-					{#if data.consistencyScores && data.consistencyScores.length > 0}
-						<div class="space-y-4">
-							{#each data.consistencyScores as score}
-								<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-									<div class="flex items-center justify-between mb-2">
-										<div class="flex items-center gap-2">
-											<span class="text-xl">{score.person_emoji}</span>
-											<span class="font-medium text-gray-800 dark:text-white">{score.person_name}</span>
-										</div>
-										<div class="text-2xl font-bold {score.consistency_percentage >= 75 ? 'text-green-600 dark:text-green-400' : score.consistency_percentage >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-orange-600 dark:text-orange-400'}">
-											{score.consistency_percentage}%
-										</div>
-									</div>
-									<div class="relative h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-3">
-										<div 
-											class="absolute h-full rounded-full transition-all duration-700 {score.consistency_percentage >= 75 ? 'bg-green-500' : score.consistency_percentage >= 50 ? 'bg-yellow-500' : 'bg-orange-500'}"
-											style="width: {score.consistency_percentage}%"
-										></div>
-									</div>
-									<div class="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
-										<span>📅 {score.active_weeks}/{score.total_weeks} weeks active</span>
-										<span>⭐ {score.weeks_with_4plus} weeks with 4+ entries</span>
-										{#if score.longest_gap_days > 0}
-											<span>😴 Longest break: {score.longest_gap_days} days</span>
-										{/if}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="text-center text-gray-500 dark:text-gray-400 py-8">
-							No data available yet
-						</div>
-					{/if}
-				</div>
-
-				<!-- Personal Bests -->
-				<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
-					<h3 class="font-semibold text-gray-800 dark:text-white mb-4">🏅 Personal Bests</h3>
-					<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Individual achievements and records</p>
-					
-					{#if data.personalBests && Object.keys(data.personalBests).length > 0}
-						<div class="space-y-4">
-							{#each statsGrid as person}
-								{@const bests = data.personalBests[person.personId] || []}
-								{#if bests.length > 0}
-									<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-										<div class="flex items-center gap-2 mb-3">
-											<span class="text-xl">{person.personEmoji}</span>
-											<span class="font-medium text-gray-800 dark:text-white">{person.personName}</span>
-										</div>
-										<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-											{#each bests as best}
-												<div class="bg-white dark:bg-gray-800 rounded p-2 text-center">
-													<div class="text-lg font-bold text-indigo-600 dark:text-indigo-400">{best.value}</div>
-													<div class="text-xs text-gray-500 dark:text-gray-400">
-														{#if best.type === 'best_day'}
-															📅 Best Day
-														{:else if best.type === 'best_week'}
-															📆 Best Week
-														{:else if best.type === 'best_month'}
-															🗓️ Best Month
-														{:else if best.type === 'longest_gap'}
-															😴 Longest Break
-														{/if}
-													</div>
-												</div>
-											{/each}
-										</div>
-									</div>
-								{/if}
-							{/each}
-						</div>
-					{:else}
-						<div class="text-center text-gray-500 dark:text-gray-400 py-8">
-							No personal bests recorded yet
-						</div>
-					{/if}
-				</div>
-			</div>
+			<StatsInsightsTab
+				dayOfWeekStats={dayOfWeekStatsState || []}
+				consistencyScores={consistencyScoresState || []}
+				personalBests={personalBestsState || {}}
+				{statsGrid}
+			/>
 
 		{:else if activeTab === 'compare'}
-			<!-- Compare/Rivalry Mode -->
-			<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
-				<h3 class="font-semibold text-gray-800 dark:text-white mb-4">⚔️ Head to Head Comparison</h3>
-				<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select two people to compare their stats</p>
-				
-				<div class="grid grid-cols-2 gap-4 mb-6">
-					<div>
-						<label for="challenger1" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Challenger 1</label>
-						<select
-							id="challenger1"
-							bind:value={comparePersons[0]}
-							class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg focus:border-indigo-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-						>
-							<option value={null}>Select person...</option>
-							{#each data.people || [] as person}
-								<option value={person.id} disabled={person.id === comparePersons[1]}>{person.emoji} {person.name}</option>
-							{/each}
-						</select>
-					</div>
-					<div>
-						<label for="challenger2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Challenger 2</label>
-						<select
-							id="challenger2"
-							bind:value={comparePersons[1]}
-							class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg focus:border-indigo-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-						>
-							<option value={null}>Select person...</option>
-							{#each data.people || [] as person}
-								<option value={person.id} disabled={person.id === comparePersons[0]}>{person.emoji} {person.name}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-				
-				{#if comparisonData}
-					<!-- Score header -->
-					<div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl p-4 mb-6 text-white">
-						<div class="grid grid-cols-3 items-center text-center">
-							<div>
-								<div class="text-3xl mb-1">{comparisonData.person1.emoji}</div>
-								<div class="font-medium">{comparisonData.person1.name}</div>
-								<div class="text-4xl font-bold mt-2">{comparisonData.wins1}</div>
-								<div class="text-sm opacity-80">wins</div>
-							</div>
-							<div>
-								<div class="text-2xl font-bold">VS</div>
-								<div class="text-sm opacity-80 mt-2">Total entries</div>
-								<div class="text-lg">{comparisonData.person1.total} - {comparisonData.person2.total}</div>
-							</div>
-							<div>
-								<div class="text-3xl mb-1">{comparisonData.person2.emoji}</div>
-								<div class="font-medium">{comparisonData.person2.name}</div>
-								<div class="text-4xl font-bold mt-2">{comparisonData.wins2}</div>
-								<div class="text-sm opacity-80">wins</div>
-							</div>
-						</div>
-					</div>
-					
-					<!-- Metric breakdown -->
-					<div class="space-y-3">
-						{#each comparisonData.comparison as item}
-							{@const total = item.person1 + item.person2}
-							{@const p1Width = total > 0 ? (item.person1 / total) * 100 : 50}
-							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-								<div class="flex items-center justify-between mb-2">
-									<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{item.emoji} {item.metric}</span>
-									{#if item.winner === 1}
-										<span class="text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full">👑 {comparisonData.person1.name} leads</span>
-									{:else if item.winner === 2}
-										<span class="text-xs bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300 px-2 py-1 rounded-full">👑 {comparisonData.person2.name} leads</span>
-									{:else}
-										<span class="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">🤝 Tied</span>
-									{/if}
-								</div>
-								<div class="flex items-center gap-2">
-									<div class="font-bold text-indigo-600 dark:text-indigo-400 w-12 text-right">{item.person1}</div>
-									<div class="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden flex">
-										<div class="h-full bg-indigo-500" style="width: {p1Width}%"></div>
-										<div class="h-full bg-pink-500" style="width: {100 - p1Width}%"></div>
-									</div>
-									<div class="font-bold text-pink-600 dark:text-pink-400 w-12">{item.person2}</div>
-								</div>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="text-center py-12 text-gray-500 dark:text-gray-400">
-						<div class="text-4xl mb-3">⚔️</div>
-						<p>Select two people above to start the comparison</p>
-					</div>
-				{/if}
-			</div>
+			<StatsCompareTab
+				people={data.people || []}
+				bind:comparePersons
+				{comparisonData}
+			/>
 		{/if}
 
 		<!-- Previous Seasons Teaser -->

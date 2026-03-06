@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getActiveSeason, getActivePeople, getCountriesVisitedForSeason, getCountriesStats } from '$lib/server/db';
+import { getSortedCountries } from '$lib/countries';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.role !== 'tracker') {
@@ -14,12 +15,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const people = getActivePeople();
 	const countriesVisited = getCountriesVisitedForSeason(season.id);
 	const countriesStats = getCountriesStats(season.id);
+	const availableCountries = getSortedCountries();
 
 	return {
 		authorized: true,
 		season,
 		people,
 		countriesVisited,
-		countriesStats
+		countriesStats,
+		availableCountries
 	};
 };

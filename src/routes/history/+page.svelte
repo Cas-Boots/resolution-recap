@@ -1,6 +1,8 @@
 <script lang="ts">
 import type { PageData } from './$types';
 import { base } from '$app/paths';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
 import { locale, t } from '$lib/stores/locale';
 import type { Translations, Locale } from '$lib/i18n';
 import { translateMetric } from '$lib/i18n';
@@ -36,7 +38,24 @@ function getTranslatedMetricName(metric: string | { name: string; name_nl?: stri
 }
 
 // Tab state
-let activeTab = $state<'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline'>('seasons');
+let activeTab = $state<'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline'>((data.activeTab as 'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline') || 'seasons');
+let tabLoading = $state(false);
+
+$effect(() => {
+	activeTab = (data.activeTab as 'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline') || 'seasons';
+});
+
+function switchTab(tab: 'seasons' | 'alltime' | 'compare' | 'predictions' | 'timeline') {
+	if (tab === activeTab || !browser) return;
+	activeTab = tab;
+	tabLoading = true;
+	const params = new URLSearchParams(window.location.search);
+	params.set('tab', tab);
+	void goto(`${base}/history?${params.toString()}`, { replaceState: true, noScroll: true, keepFocus: true })
+		.finally(() => {
+			tabLoading = false;
+		});
+}
 
 // Expanded season state
 let expandedYear = $state<number | null>(null);
@@ -159,6 +178,11 @@ return max;
 </div>
 {:else}
 <div class="space-y-6">
+	{#if tabLoading}
+		<div class="fixed top-4 right-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-300 shadow">
+			Loading tab...
+		</div>
+	{/if}
 <!-- Header with current season link -->
 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
 <div class="flex items-center justify-between flex-wrap gap-4">
@@ -182,31 +206,31 @@ class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-70
 <!-- Tab Navigation -->
 <div class="flex gap-2 overflow-x-auto pb-2">
 <button
-onclick={() => activeTab = 'seasons'}
+onclick={() => switchTab('seasons')}
 class="px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap {activeTab === 'seasons' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 >
 🏆 Seasons
 </button>
 <button
-onclick={() => activeTab = 'alltime'}
+onclick={() => switchTab('alltime')}
 class="px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap {activeTab === 'alltime' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 >
 👑 All-Time
 </button>
 <button
-onclick={() => activeTab = 'predictions'}
+onclick={() => switchTab('predictions')}
 class="px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap {activeTab === 'predictions' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 >
 🔮 Predictions
 </button>
 <button
-onclick={() => activeTab = 'compare'}
+onclick={() => switchTab('compare')}
 class="px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 >
 ⚔️ Head-to-Head
 </button>
 <button
-onclick={() => activeTab = 'timeline'}
+onclick={() => switchTab('timeline')}
 class="px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap {activeTab === 'timeline' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 >
 📈 Timeline
