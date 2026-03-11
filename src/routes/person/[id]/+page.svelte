@@ -53,7 +53,8 @@
 		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
 		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
 		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
+		{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
 		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
 		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
 		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
@@ -98,7 +99,11 @@
 	}
 
 	function getSportTagLabel(tag: string): string {
-		const normalized = tag.trim().toLowerCase();
+		const raw = tag.trim().toLowerCase();
+		const normalized =
+			raw === 'skating' ? 'ice-skating' :
+			raw === 'inline-skating' || raw === 'skeeleren' ? 'road-skating' :
+			raw;
 		const found = SPORT_ACTIVITIES.find((activity) => activity.value === normalized);
 		if (found) return found.label;
 		return normalized

@@ -2285,6 +2285,18 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		ORDER BY total DESC
 	`).all(seasonId, sportingMetric.id) as { tags: string; total: number }[];
 	
+	const toCanonicalSportTag = (tag: string): string => {
+		switch (tag) {
+			case 'skating':
+				return 'ice-skating';
+			case 'inline-skating':
+			case 'skeeleren':
+				return 'road-skating';
+			default:
+				return tag;
+		}
+	};
+
 	const normalizeSportTag = (rawTag: string): string => {
 		const input = rawTag.trim();
 		if (!input) return 'other';
@@ -2294,11 +2306,11 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 			if (Array.isArray(parsed) && parsed.length > 0) {
 				const first = parsed.find((tag) => typeof tag === 'string' && tag.trim().length > 0);
 				if (typeof first === 'string') {
-					return first.trim().toLowerCase();
+					return toCanonicalSportTag(first.trim().toLowerCase());
 				}
 			}
 			if (typeof parsed === 'string' && parsed.trim().length > 0) {
-				return parsed.trim().toLowerCase();
+				return toCanonicalSportTag(parsed.trim().toLowerCase());
 			}
 		} catch {
 			// Non-JSON tag format
@@ -2306,10 +2318,10 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 
 		if (input.includes(',')) {
 			const first = input.split(',')[0].trim();
-			if (first) return first.toLowerCase();
+			if (first) return toCanonicalSportTag(first.toLowerCase());
 		}
 
-		return input.toLowerCase();
+		return toCanonicalSportTag(input.toLowerCase());
 	};
 
 	const totalsByTag = new Map<string, number>();
@@ -2336,7 +2348,11 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		'football': '⚽',
 		'soccer': '⚽',
 		'hiking': '🥾',
+		'ice-skating': '⛸️',
+		'road-skating': '🛼',
 		'skating': '⛸️',
+		'inline-skating': '🛼',
+		'skeeleren': '🛼',
 		'skiing': '⛷️',
 		'snowboarding': '🏂',
 		'sledding': '🛷',
@@ -2363,7 +2379,11 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		'football': 'Football',
 		'soccer': 'Soccer',
 		'hiking': 'Hiking',
-		'skating': 'Skating',
+		'ice-skating': 'Ice Skating',
+		'road-skating': 'Road Skating',
+		'skating': 'Ice Skating',
+		'inline-skating': 'Road Skating',
+		'skeeleren': 'Road Skating',
 		'skiing': 'Skiing',
 		'snowboarding': 'Snowboarding',
 		'sledding': 'Sledding',

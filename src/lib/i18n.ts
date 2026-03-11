@@ -101,7 +101,8 @@ export interface Translations {
 		climbing: string;
 		bouldering: string;
 		skiing: string;
-		skating: string;
+		iceSkating: string;
+		roadSkating: string;
 		snowboarding: string;
 		sledding: string;
 		physio: string;
@@ -262,7 +263,8 @@ export const translations: Record<Locale, Translations> = {
 			climbing: 'Climbing',
 			bouldering: 'Bouldering',
 			skiing: 'Skiing',
-			skating: 'Skating',
+			iceSkating: 'Ice Skating',
+			roadSkating: 'Road Skating',
 			snowboarding: 'Snowboarding',
 			sledding: 'Sledding',
 			physio: 'Physio',
@@ -418,7 +420,8 @@ export const translations: Record<Locale, Translations> = {
 			climbing: 'Klimmen',
 			bouldering: 'Boulderen',
 			skiing: 'Skiën',
-			skating: 'Schaatsen',
+			iceSkating: 'Schaatsen op ijs',
+			roadSkating: 'Skeeleren',
 			snowboarding: 'Snowboarden',
 			sledding: 'Rodeling',
 			physio: 'Fysio',

@@ -56,7 +56,8 @@
 		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
 		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
 		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-		{ value: 'skating', label: `⛸️ ${translations?.sports.skating ?? 'Skating'}` },
+		{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
+		{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
 		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
 		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
 		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
@@ -913,7 +914,11 @@
 			case 'climbing': return '🧗';
 			case 'bouldering': return '🧗';
 			case 'skiing': return '⛷️';
+			case 'ice-skating': return '⛸️';
+			case 'road-skating': return '🛼';
 			case 'skating': return '⛸️';
+			case 'inline-skating': return '🛼';
+			case 'skeeleren': return '🛼';
 			case 'snowboarding': return '🏂';
 			case 'sledding': return '🛷';
 			case 'physio': return '🧑‍⚕️';
@@ -959,7 +964,11 @@
 	// Get sport activity label from tag value
 	function getSportLabel(tag: string | null): string | null {
 		if (!tag) return null;
-		const activity = SPORT_ACTIVITIES.find(a => a.value === tag);
+		const normalizedTag =
+			tag === 'skating' ? 'ice-skating' :
+			tag === 'inline-skating' || tag === 'skeeleren' ? 'road-skating' :
+			tag;
+		const activity = SPORT_ACTIVITIES.find(a => a.value === normalizedTag);
 		return activity?.label ?? tag;
 	}
 
