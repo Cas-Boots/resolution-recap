@@ -4,7 +4,7 @@ import type { StreakData } from '$lib/server/db';
 import { getPlayerStats } from '$lib/leveling';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	if (locals.role !== 'tracker') {
+	if (!locals.role) {
 		return { authorized: false };
 	}
 
@@ -83,6 +83,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	
 	return {
 		authorized: true,
+		role: locals.role,
 		season,
 		person,
 		people,

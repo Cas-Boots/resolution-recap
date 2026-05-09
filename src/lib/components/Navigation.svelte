@@ -91,7 +91,8 @@
 	const adminLinks = [
 		{ href: `${base}/admin`, label: 'Seasons', icon: '📅' },
 		{ href: `${base}/admin/entries`, label: 'Entries', icon: '📝' },
-		{ href: `${base}/admin/export`, label: 'Export', icon: '💾' }
+		{ href: `${base}/admin/export`, label: 'Export', icon: '💾' },
+		{ href: `${base}/admin/people`, label: 'People', icon: '👥' }
 	];
 
 	const allLinks = $derived(role === 'admin' ? adminLinks : [...primaryLinks, ...secondaryLinks]);
