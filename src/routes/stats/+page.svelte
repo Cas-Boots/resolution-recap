@@ -557,15 +557,102 @@
 
 	const expectedProgress = $derived(getExpectedProgress());
 
+	let cumulativeHoverIdx = $state<number | null>(null);
+
+	// Cumulative progress chart data
+	const cumulativeChartData = $derived.by(() => {
+		if (!data.cumulativeStats || !data.season) return { labels: [], datasets: [] };
+
+		const people = data.people || [];
+		const year = data.season.year;
+		const startOfYear = `${year}-01-01`;
+
+		// First, collect raw cumulative data by person
+		const rawByPerson = new Map<number, { name: string; emoji: string; data: Map<string, number> }>();
+
+		// Initialize all people
+		for (const person of people) {
+			rawByPerson.set(person.id, {
+				name: person.name,
+				emoji: person.emoji || '👤',
+				data: new Map<string, number>()
+			});
+		}
+
+		for (const entry of data.cumulativeStats) {
+			if (!rawByPerson.has(entry.person_id)) {
+				rawByPerson.set(entry.person_id, {
+					name: entry.person_name,
+					emoji: entry.person_emoji,
+					data: new Map<string, number>()
+				});
+			}
+			rawByPerson.get(entry.person_id)!.data.set(entry.date, entry.cumulative);
+		}
+
+		// Get all unique dates, ensuring Jan 1 is included
+		const allDatesSet = new Set(data.cumulativeStats.map(e => e.date));
+		allDatesSet.add(startOfYear);
+		const allDates = [...allDatesSet].sort();
+
+		// Build datasets with data point for each date (carry forward cumulative values)
+		const datasets = Array.from(rawByPerson.entries()).map(([id, d]) => {
+			let lastValue = 0;
+			const filledData = allDates.map(date => {
+				if (d.data.has(date)) {
+					lastValue = d.data.get(date)!;
+				}
+				return { date, value: lastValue };
+			});
+
+			return {
+				personId: id,
+				name: d.name,
+				emoji: d.emoji,
+				data: filledData
+			};
+		});
+
+		return {
+			labels: allDates,
+			datasets
+		};
+	});
+
+	const cumulativeMonthTicks = $derived.by(() => {
+		const labels = cumulativeChartData.labels;
+		if (!labels.length || !data.season) return [];
+		const denom = Math.max(labels.length - 1, 1);
+		const year = data.season.year;
+		const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+		const indexMap = new Map(labels.map((l, i) => [l, i]));
+		return names.map((name, m) => {
+			const dateStr = `${year}-${String(m + 1).padStart(2, '0')}-01`;
+			const idx = indexMap.get(dateStr);
+			if (idx === undefined) return null;
+			return { name, x: 50 + (idx / denom) * 730 };
+		}).filter((t): t is { name: string; x: number } => t !== null);
+	});
+
+	const cumulativeTodayX = $derived.by(() => {
+		const labels = cumulativeChartData.labels;
+		if (!labels.length) return null;
+		const today = new Date().toISOString().split('T')[0];
+		const denom = Math.max(labels.length - 1, 1);
+		const idx = labels.indexOf(today);
+		if (idx === -1) return null;
+		return 50 + (idx / denom) * 730;
+	});
+
 	// Comparison data for rivalry mode
 	const comparisonData = $derived.by(() => {
 		if (!comparePersons[0] || !comparePersons[1]) return null;
-		
+
 		const person1 = statsGrid.find(p => p.personId === comparePersons[0]);
 		const person2 = statsGrid.find(p => p.personId === comparePersons[1]);
-		
+
 		if (!person1 || !person2) return null;
-		
+
 		const metrics = data.metrics || [];
 		const comparison = metrics.map(metric => {
 			const count1 = person1.metrics[metric.name] || 0;
@@ -578,73 +665,13 @@
 				winner: count1 > count2 ? 1 : count2 > count1 ? 2 : 0
 			};
 		});
-		
+
 		return {
 			person1: { id: person1.personId, name: person1.personName, emoji: person1.personEmoji, total: person1.total },
 			person2: { id: person2.personId, name: person2.personName, emoji: person2.personEmoji, total: person2.total },
 			comparison,
 			wins1: comparison.filter(c => c.winner === 1).length,
 			wins2: comparison.filter(c => c.winner === 2).length
-		};
-	});
-
-	// Cumulative progress chart data
-	const cumulativeChartData = $derived.by(() => {
-		if (!data.cumulativeStats || !data.season) return { labels: [], datasets: [] };
-		
-		const people = data.people || [];
-		const year = data.season.year;
-		const startOfYear = `${year}-01-01`;
-		
-		// First, collect raw cumulative data by person
-		const rawByPerson = new Map<number, { name: string; emoji: string; data: Map<string, number> }>();
-		
-		// Initialize all people
-		for (const person of people) {
-			rawByPerson.set(person.id, { 
-				name: person.name, 
-				emoji: person.emoji || '👤', 
-				data: new Map<string, number>() 
-			});
-		}
-		
-		for (const entry of data.cumulativeStats) {
-			if (!rawByPerson.has(entry.person_id)) {
-				rawByPerson.set(entry.person_id, { 
-					name: entry.person_name, 
-					emoji: entry.person_emoji, 
-					data: new Map<string, number>() 
-				});
-			}
-			rawByPerson.get(entry.person_id)!.data.set(entry.date, entry.cumulative);
-		}
-		
-		// Get all unique dates, ensuring Jan 1 is included
-		const allDatesSet = new Set(data.cumulativeStats.map(e => e.date));
-		allDatesSet.add(startOfYear);
-		const allDates = [...allDatesSet].sort();
-		
-		// Build datasets with data point for each date (carry forward cumulative values)
-		const datasets = Array.from(rawByPerson.entries()).map(([id, d]) => {
-			let lastValue = 0;
-			const filledData = allDates.map(date => {
-				if (d.data.has(date)) {
-					lastValue = d.data.get(date)!;
-				}
-				return { date, value: lastValue };
-			});
-			
-			return {
-				personId: id,
-				name: d.name,
-				emoji: d.emoji,
-				data: filledData
-			};
-		});
-		
-		return {
-			labels: allDates,
-			datasets
 		};
 	});
 
@@ -1055,16 +1082,16 @@ return { days: allDays, maxCount, weeks };
 								<div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1">
 									<span>📈</span> Monthly trend
 								</div>
-								<div class="flex items-end gap-2 h-16 px-1">
+								<div class="flex items-end gap-1.5 h-20 px-1">
 									{#each trend as point, idx}
-										{@const barHeight = getTrendBarHeightPx(point.total, maxVal, 44, 6)}
+										{@const barHeight = getTrendBarHeightPx(point.total, maxVal, 54, 8)}
 										{@const isLast = idx === trend.length - 1}
 										<div class="flex-1 flex flex-col items-center group relative">
 											<div 
 												class="w-full rounded-md transition-all duration-500 hover:scale-105 relative overflow-hidden {isLast ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 dark:from-indigo-500 dark:to-indigo-400 shadow-lg shadow-indigo-500/30' : 'bg-gradient-to-t from-indigo-300 to-indigo-200 dark:from-indigo-600 dark:to-indigo-500'}"
 												style="height: {barHeight}px"
 											>
-												{#if point.total > 0 && barHeight > 25}
+												{#if point.total > 0 && barHeight > 16}
 													<div class="absolute inset-0 flex items-center justify-center">
 														<span class="text-[8px] font-bold text-white drop-shadow">{point.total}</span>
 													</div>
@@ -1422,10 +1449,42 @@ return { days: allDays, maxCount, weeks };
 						{/each}
 					</div>
 					
+					<!-- Hover tooltip -->
+					{#if cumulativeHoverIdx !== null}
+						{@const hi = cumulativeHoverIdx}
+						{@const hoverDate = labels[hi]}
+						<div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-950 rounded-lg text-xs text-white min-h-[28px]">
+							<span class="font-semibold text-gray-400 shrink-0">{formatShortDate(hoverDate)}</span>
+							{#each cumulativeChartData.datasets as dataset, i}
+								{@const val = dataset.data.find(p => p.date === hoverDate)?.value ?? 0}
+								<div class="flex items-center gap-1.5">
+									<div class="w-2 h-2 rounded-full shrink-0" style="background:{colors[i % 6]}"></div>
+									<span class="text-gray-300">{dataset.emoji} {dataset.name}:</span>
+									<strong>{val}</strong>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="mb-2 min-h-[28px]"></div>
+					{/if}
+
 					<div class="h-56 relative overflow-x-auto">
-						<svg class="h-full min-w-[760px] w-full" viewBox="0 0 800 220" preserveAspectRatio="none" role="img" aria-label="Cumulative progress by person over time">
+						<svg
+							class="h-full min-w-[760px] w-full cursor-crosshair"
+							viewBox="0 0 800 220"
+							preserveAspectRatio="none"
+							role="img"
+							aria-label="Cumulative progress by person over time"
+							onmousemove={(e) => {
+								const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+								const svgX = ((e.clientX - rect.left) / rect.width) * 800;
+								const clampedX = Math.max(50, Math.min(780, svgX));
+								const idx = Math.round(((clampedX - 50) / 730) * labelCountDenominator);
+								cumulativeHoverIdx = Math.max(0, Math.min(labels.length - 1, idx));
+							}}
+							onmouseleave={() => { cumulativeHoverIdx = null; }}
+						>
 							<defs>
-								<!-- Gradient definitions for each line -->
 								{#each colors as color, i}
 									<linearGradient id="lineGrad{i}" x1="0%" y1="0%" x2="0%" y2="100%">
 										<stop offset="0%" stop-color="{color}" stop-opacity="0.3"/>
@@ -1433,16 +1492,16 @@ return { days: allDays, maxCount, weeks };
 									</linearGradient>
 								{/each}
 							</defs>
-							
+
 							<!-- Background -->
 							<rect x="50" y="10" width="730" height="180" fill="none" rx="8"/>
-							
+
 							<!-- Horizontal grid lines -->
 							{#each [0, 0.25, 0.5, 0.75, 1] as ratio}
-								<line 
-									x1="50" y1={190 - ratio * 170} 
-									x2="780" y2={190 - ratio * 170} 
-									stroke="currentColor" 
+								<line
+									x1="50" y1={190 - ratio * 170}
+									x2="780" y2={190 - ratio * 170}
+									stroke="currentColor"
 									class="text-gray-100 dark:text-gray-700"
 									stroke-width="1"
 									stroke-dasharray={ratio === 0 ? "0" : "4,4"}
@@ -1451,11 +1510,23 @@ return { days: allDays, maxCount, weeks };
 									{Math.round(maxValue * ratio)}
 								</text>
 							{/each}
-							
+
+							<!-- Month tick marks and labels -->
+							{#each cumulativeMonthTicks as tick}
+								<line x1={tick.x} y1="190" x2={tick.x} y2="196" stroke="currentColor" class="text-gray-300 dark:text-gray-600" stroke-width="1"/>
+								<text x={tick.x} y="208" class="text-[9px] fill-gray-400 dark:fill-gray-500" text-anchor="middle">{tick.name}</text>
+							{/each}
+
+							<!-- Today marker -->
+							{#if cumulativeTodayX !== null}
+								<line x1={cumulativeTodayX} y1="10" x2={cumulativeTodayX} y2="190" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.7"/>
+								<text x={cumulativeTodayX} y="205" class="text-[8px] fill-amber-400" text-anchor="middle">▲</text>
+							{/if}
+
 							<!-- Area fills (behind lines) -->
 							{#each cumulativeChartData.datasets as dataset, i}
 								{@const color = colors[i % 6]}
-								{@const points = dataset.data.map((point, idx) => {
+								{@const points = dataset.data.map((point) => {
 									const x = 50 + ((dateIndexMap.get(point.date) ?? 0) / labelCountDenominator) * 730;
 									const y = 190 - (point.value / maxValue) * 170;
 									return `${x},${y}`;
@@ -1468,33 +1539,33 @@ return { days: allDays, maxCount, weeks };
 									opacity="0.5"
 								/>
 							{/each}
-							
+
 							<!-- Lines for each person -->
 							{#each cumulativeChartData.datasets as dataset, i}
 								{@const color = colors[i % 6]}
 								<polyline
 									fill="none"
 									stroke={color}
-									stroke-width="3"
+									stroke-width="2.5"
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									points={dataset.data.map((point, idx) => {
+									points={dataset.data.map((point) => {
 										const x = 50 + ((dateIndexMap.get(point.date) ?? 0) / labelCountDenominator) * 730;
 										const y = 190 - (point.value / maxValue) * 170;
 										return `${x},${y}`;
 									}).join(' ')}
-									class="transition-all duration-500 drop-shadow-sm"
+									class="transition-all duration-500"
 								/>
-								
+
 								<!-- End point marker -->
 								{@const lastPoint = dataset.data[dataset.data.length - 1]}
 								{#if lastPoint}
 									{@const lastX = 50 + ((dateIndexMap.get(lastPoint.date) ?? 0) / labelCountDenominator) * 730}
 									{@const lastY = 190 - (lastPoint.value / maxValue) * 170}
-									<circle 
-										cx={lastX} 
-										cy={lastY} 
-										r="6" 
+									<circle
+										cx={lastX}
+										cy={lastY}
+										r="5"
 										fill={color}
 										stroke="white"
 										stroke-width="2"
@@ -1502,13 +1573,18 @@ return { days: allDays, maxCount, weeks };
 									/>
 								{/if}
 							{/each}
-							
-							<!-- X-axis labels -->
-							{#if labels.length > 0}
-								<text x="50" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500">{formatShortDate(labels[0])}</text>
-								{#if labels.length > 1}
-									<text x="780" y="208" class="text-[10px] fill-gray-400 dark:fill-gray-500" text-anchor="end">{formatShortDate(labels[labels.length - 1])}</text>
-								{/if}
+
+							<!-- Hover crosshair and dots -->
+							{#if cumulativeHoverIdx !== null}
+								{@const hi2 = cumulativeHoverIdx}
+								{@const hoverDate2 = labels[hi2]}
+								{@const hoverX = 50 + (hi2 / labelCountDenominator) * 730}
+								<line x1={hoverX} y1="10" x2={hoverX} y2="190" stroke="rgba(156,163,175,0.6)" stroke-width="1" stroke-dasharray="4,3" pointer-events="none"/>
+								{#each cumulativeChartData.datasets as dataset, i}
+									{@const val2 = dataset.data.find(p => p.date === hoverDate2)?.value ?? 0}
+									{@const dotY = 190 - (val2 / maxValue) * 170}
+									<circle cx={hoverX} cy={dotY} r="4.5" fill={colors[i % 6]} stroke="white" stroke-width="2" pointer-events="none"/>
+								{/each}
 							{/if}
 						</svg>
 					</div>

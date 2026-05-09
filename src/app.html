@@ -34,9 +34,15 @@
 					const basePath = manifestLink ? manifestLink.href.replace('/manifest.json', '') : '';
 					const swPath = basePath ? basePath + '/service-worker.js' : '/service-worker.js';
 
+					// Capture before registration: if null, there is no existing SW in control.
+					// controllerchange fires both on first-time claim() and on SW updates.
+					// We only want to reload for updates (replacing an old controller), not for
+					// first-time activation — that would interrupt the very first page load.
+					const hadController = Boolean(navigator.serviceWorker.controller);
 					let reloadedOnControllerChange = false;
 					navigator.serviceWorker.addEventListener('controllerchange', () => {
 						if (reloadedOnControllerChange) return;
+						if (!hadController) return;
 						reloadedOnControllerChange = true;
 						window.location.reload();
 					});

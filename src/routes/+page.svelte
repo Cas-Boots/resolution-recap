@@ -13,6 +13,7 @@
 	import { locale, t } from '$lib/stores/locale';
 	import { pushAchievementCelebrations, pushMilestoneCelebration } from '$lib/stores/celebrations';
 	import type { Translations, Locale } from '$lib/i18n';
+	import { SPORTS, canonicalSportTag } from '$lib/sports';
 	import { translateMetric } from '$lib/i18n';
 	import Sparkline from '$lib/components/stats/Sparkline.svelte';
 	import StreakBadge from '$lib/components/stats/StreakBadge.svelte';
@@ -42,34 +43,13 @@
 		return translateMetric(metric.name, currentLocale, metric.name_nl);
 	}
 
-	// Predefined sport activity types - reactive for translations
-	const SPORT_ACTIVITIES = $derived([
-		{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
-		{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
-		{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
-		{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
-		{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
-		{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
-		{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
-		{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
-		{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
-		{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
-		{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
-		{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
-		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
-		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
-		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-		{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
-		{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
-		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
-		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
-		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
-		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
-		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
-		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
-		{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
-		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
-	]);
+	// Predefined sport activity types - derived from shared source of truth
+	const SPORT_ACTIVITIES = $derived(
+		SPORTS.map(s => ({
+			value: s.value,
+			label: `${s.emoji} ${translations?.sports[s.translationKey] ?? s.englishLabel}`
+		}))
+	);
 
 	interface Props {
 		data: PageData;
@@ -958,11 +938,7 @@
 	// Get sport activity label from tag value
 	function getSportLabel(tag: string | null): string | null {
 		if (!tag) return null;
-		const normalizedTag =
-			tag === 'skating' ? 'ice-skating' :
-			tag === 'inline-skating' || tag === 'skeeleren' ? 'road-skating' :
-			tag;
-		const activity = SPORT_ACTIVITIES.find(a => a.value === normalizedTag);
+		const activity = SPORT_ACTIVITIES.find(a => a.value === canonicalSportTag(tag));
 		return activity?.label ?? tag;
 	}
 

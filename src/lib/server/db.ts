@@ -1,3 +1,4 @@
+import { SPORTS, SPORT_ALIASES, LEGACY_SPORT_DISPLAY, canonicalSportTag } from '$lib/sports';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
@@ -2342,18 +2343,6 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 		ORDER BY total DESC
 	`).all(seasonId, sportingMetric.id) as { tags: string; total: number }[];
 	
-	const toCanonicalSportTag = (tag: string): string => {
-		switch (tag) {
-			case 'skating':
-				return 'ice-skating';
-			case 'inline-skating':
-			case 'skeeleren':
-				return 'road-skating';
-			default:
-				return tag;
-		}
-	};
-
 	const normalizeSportTag = (rawTag: string): string => {
 		const input = rawTag.trim();
 		if (!input) return 'other';
@@ -2363,11 +2352,11 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 			if (Array.isArray(parsed) && parsed.length > 0) {
 				const first = parsed.find((tag) => typeof tag === 'string' && tag.trim().length > 0);
 				if (typeof first === 'string') {
-					return toCanonicalSportTag(first.trim().toLowerCase());
+					return canonicalSportTag(first.trim().toLowerCase());
 				}
 			}
 			if (typeof parsed === 'string' && parsed.trim().length > 0) {
-				return toCanonicalSportTag(parsed.trim().toLowerCase());
+				return canonicalSportTag(parsed.trim().toLowerCase());
 			}
 		} catch {
 			// Non-JSON tag format
@@ -2375,10 +2364,10 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 
 		if (input.includes(',')) {
 			const first = input.split(',')[0].trim();
-			if (first) return toCanonicalSportTag(first.toLowerCase());
+			if (first) return canonicalSportTag(first.toLowerCase());
 		}
 
-		return toCanonicalSportTag(input.toLowerCase());
+		return canonicalSportTag(input.toLowerCase());
 	};
 
 	const totalsByTag = new Map<string, number>();
@@ -2389,86 +2378,23 @@ export function getSportTotals(seasonId: number): SportTotals[] {
 
 	const grandTotal = Array.from(totalsByTag.values()).reduce((sum, value) => sum + value, 0);
 	
-	// Map sport types to emojis
+	// Build sport emoji/display-name maps from the shared source of truth
 	const sportEmojis: Record<string, string> = {
-		'running': '🏃',
-		'cycling': '🚴',
-		'swimming': '🏊',
-		'walking': '🚶',
-		'gym': '🏋️',
-		'yoga': '🧘',
-		'tennis': '🎾',
-		'padel': '🎾',
-		'basketball': '🏀',
-		'hockey': '🏑',
-		'volleyball': '🏐',
-		'football': '⚽',
-		'soccer': '⚽',
-		'hiking': '🥾',
-		'ice-skating': '⛸️',
-		'road-skating': '🛼',
-		'skating': '⛸️',
-		'inline-skating': '🛼',
-		'skeeleren': '🛼',
-		'skiing': '⛷️',
-		'snowboarding': '🏂',
-		'sledding': '🛷',
-		'physio': '🧑‍⚕️',
-		'rowing': '🚣',
-		'kayaking': '🛶',
-		'rafting': '🚣',
-		'bootcamp': '💪',
-		'pilates': '🧘',
-		'badminton': '🏸',
-		'squash': '🎾',
-		'table-tennis': '🏓',
-		'korfball': '🏐',
-		'climbing': '🧗',
-		'bouldering': '🧗',
-		'fitness': '💪',
-		'other': '🏃'
+		...Object.fromEntries(SPORTS.map(s => [s.value, s.emoji])),
+		...Object.fromEntries(Object.entries(SPORT_ALIASES).map(([alias, canonical]) => {
+			const sport = SPORTS.find(s => s.value === canonical);
+			return [alias, sport?.emoji ?? '🏃'];
+		})),
+		...Object.fromEntries(Object.entries(LEGACY_SPORT_DISPLAY).map(([k, v]) => [k, v.emoji])),
 	};
 
 	const sportDisplayNames: Record<string, string> = {
-		'running': 'Running',
-		'cycling': 'Cycling',
-		'swimming': 'Swimming',
-		'walking': 'Walking',
-		'gym': 'Gym',
-		'yoga': 'Yoga',
-		'tennis': 'Tennis',
-		'padel': 'Padel',
-		'basketball': 'Basketball',
-		'hockey': 'Hockey',
-		'volleyball': 'Volleyball',
-		'football': 'Football',
-		'soccer': 'Soccer',
-		'hiking': 'Hiking',
-		'ice-skating': 'Ice Skating',
-		'road-skating': 'Road Skating',
-		'skating': 'Ice Skating',
-		'inline-skating': 'Road Skating',
-		'skeeleren': 'Road Skating',
-		'skiing': 'Skiing',
-		'snowboarding': 'Snowboarding',
-		'sledding': 'Sledding',
-		'physio': 'Physio',
-		'rowing': 'Rowing',
-		'kayaking': 'Kayaking',
-		'rafting': 'Rafting',
-		'bootcamp': 'Bootcamp',
-		'pilates': 'Pilates',
-		'badminton': 'Badminton',
-		'squash': 'Squash',
-		'table-tennis': 'Table Tennis',
-		'korfball': 'Korfball',
-		'climbing': 'Climbing',
-		'bouldering': 'Bouldering',
-		'fitness': 'Fitness',
-		'hyrox': 'Hyrox',
-		'boxing': 'Boxing',
-		'dance': 'Dance',
-		'other': 'Other'
+		...Object.fromEntries(SPORTS.map(s => [s.value, s.englishLabel])),
+		...Object.fromEntries(Object.entries(SPORT_ALIASES).map(([alias, canonical]) => {
+			const sport = SPORTS.find(s => s.value === canonical);
+			return [alias, sport?.englishLabel ?? alias];
+		})),
+		...Object.fromEntries(Object.entries(LEGACY_SPORT_DISPLAY).map(([k, v]) => [k, v.englishLabel])),
 	};
 	
 	return Array.from(totalsByTag.entries())

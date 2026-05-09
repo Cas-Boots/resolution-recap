@@ -5,6 +5,7 @@
 	import { t } from '$lib/stores/locale';
 	import { pushAchievementCelebrations } from '$lib/stores/celebrations';
 	import type { Translations } from '$lib/i18n';
+	import { groupedSports } from '$lib/sports';
 
 	interface Props {
 		data: PageData;
@@ -21,93 +22,16 @@
 		return unsubscribe;
 	});
 
-	// Predefined sport activity types - reactive for translations
-	const SPORT_GROUPS = $derived([
-		{
-			label: 'Cardio',
-			sports: [
-				{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
-				{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
-				{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
-			]
-		},
-		{
-			label: 'Water',
-			sports: [
-				{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
-				{ value: 'kayaking', label: `🛶 ${translations?.sports.kayaking ?? 'Kayaking'}` },
-				{ value: 'rafting', label: `🚣 ${translations?.sports.rafting ?? 'Rafting'}` },
-				{ value: 'rowing', label: `🚣 ${translations?.sports.rowing ?? 'Rowing'}` },
-			]
-		},
-		{
-			label: 'Gym & Fitness',
-			sports: [
-				{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
-				{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
-				{ value: 'bootcamp', label: `💪 ${translations?.sports.bootcamp ?? 'Bootcamp'}` },
-				{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
-			]
-		},
-		{
-			label: 'Mind & Body',
-			sports: [
-				{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
-				{ value: 'pilates', label: `🧘 ${translations?.sports.pilates ?? 'Pilates'}` },
-			]
-		},
-		{
-			label: 'Racket',
-			sports: [
-				{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
-				{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
-				{ value: 'badminton', label: `🏸 ${translations?.sports.badminton ?? 'Badminton'}` },
-				{ value: 'squash', label: `🎾 ${translations?.sports.squash ?? 'Squash'}` },
-				{ value: 'table-tennis', label: `🏓 ${translations?.sports.tableTennis ?? 'Table Tennis'}` },
-			]
-		},
-		{
-			label: 'Team',
-			sports: [
-				{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
-				{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
-				{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
-				{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
-				{ value: 'korfball', label: `🏐 ${translations?.sports.korfball ?? 'Korfball'}` },
-			]
-		},
-		{
-			label: 'Climbing',
-			sports: [
-				{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
-				{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
-			]
-		},
-		{
-			label: 'Winter',
-			sports: [
-				{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-				{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
-				{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
-				{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
-				{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
-			]
-		},
-		{
-			label: 'Combat',
-			sports: [
-				{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
-				{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
-			]
-		},
-		{
-			label: 'Other',
-			sports: [
-				{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
-				{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` },
-			]
-		},
-	]);
+	// Predefined sport activity types - derived from shared source of truth
+	const SPORT_GROUPS = $derived(
+		groupedSports().map(group => ({
+			label: group.label,
+			sports: group.sports.map(s => ({
+				value: s.value,
+				label: `${s.emoji} ${translations?.sports[s.translationKey] ?? s.englishLabel}`
+			}))
+		}))
+	);
 
 	// Emoji mapping for metrics
 	const METRIC_EMOJIS: Record<string, string> = {

@@ -119,8 +119,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 // Global error handler for unhandled server errors
 export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+	// 404s are expected (missing routes, stale SW cache, etc.) — don't alarm-log them
+	if (status === 404) {
+		return { message, code: 'not-found' };
+	}
+
 	const errorId = Math.random().toString(36).substring(7);
-	
+
 	console.error('═══════════════════════════════════════════════════');
 	console.error(`❌ UNHANDLED SERVER ERROR [${errorId}]`);
 	console.error('═══════════════════════════════════════════════════');
@@ -135,7 +140,7 @@ export const handleError: HandleServerError = async ({ error, event, status, mes
 	console.error('═══════════════════════════════════════════════════');
 
 	return {
-		message: process.env.NODE_ENV === 'production' 
+		message: process.env.NODE_ENV === 'production'
 			? `An unexpected error occurred (${errorId})`
 			: message,
 		code: errorId
