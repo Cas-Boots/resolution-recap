@@ -22,7 +22,6 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const dbPath = process.env.DB_PATH || './data/resolution-recap.db';
 	const tempFile = `/tmp/backup-${randomBytes(8).toString('hex')}.db`;
 
 	try {
