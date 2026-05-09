@@ -3,7 +3,7 @@
 		type: string;
 		value: number;
 		date?: string;
-		details: string;
+		details?: string;
 	}
 
 	interface Props {

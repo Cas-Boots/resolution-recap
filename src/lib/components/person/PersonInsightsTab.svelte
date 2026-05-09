@@ -12,7 +12,7 @@
 		personEmoji: string;
 		sportCounts: { tag: string; count: number }[];
 		dayOfWeekStats: { day: string; dayIndex: number; count: number; percentage: number }[];
-		personalBests: { type: string; value: number; date?: string; details: string }[];
+		personalBests: { type: string; value: number; date?: string; details?: string }[];
 		metrics: Metric[];
 	}
 
