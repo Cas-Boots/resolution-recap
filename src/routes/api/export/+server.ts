@@ -1,24 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { env } from '$env/dynamic/private';
 import { exportAllData } from '$lib/server/db';
-
-function getBackupToken(url: URL, authHeader: string | null): string {
-	const queryToken = url.searchParams.get('token');
-	if (queryToken) return queryToken;
-
-	if (authHeader?.startsWith('Bearer ')) {
-		return authHeader.slice(7).trim();
-	}
-
-	return '';
-}
+import { isAuthorizedBackup } from '$lib/server/backup-auth';
 
 export const GET: RequestHandler = async ({ request, url, locals }) => {
 	// Allow access with admin role or backup token
-	const token = getBackupToken(url, request.headers.get('authorization'));
-	
-	if (locals.role !== 'admin' && token !== env.BACKUP_TOKEN) {
+	if (locals.role !== 'admin' && !isAuthorizedBackup(url, request.headers.get('authorization'))) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
