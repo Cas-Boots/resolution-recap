@@ -3,7 +3,7 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { build, files, version, base } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -78,7 +78,7 @@ sw.addEventListener('fetch', (event) => {
 						return cachedResponse;
 					}
 
-					const rootCachedResponse = await caches.match('/');
+					const rootCachedResponse = await caches.match(base + '/');
 					if (rootCachedResponse) {
 						return rootCachedResponse;
 					}
@@ -137,7 +137,7 @@ sw.addEventListener('fetch', (event) => {
 			}).catch(() => {
 				// Network failed, try to return a cached fallback for HTML pages
 				if (event.request.destination === 'document') {
-					return caches.match('/').then((response) => {
+					return caches.match(base + '/').then((response) => {
 						if (response) return response;
 						// Return a basic offline page if nothing is cached
 						return new Response(
@@ -155,7 +155,7 @@ sw.addEventListener('fetch', (event) => {
 
 // Listen for messages from the client
 sw.addEventListener('message', (event) => {
-	if (event.data && event.data.type === 'SKIP_WAITING') {
+	if (event.data !== null && typeof event.data === 'object' && event.data.type === 'SKIP_WAITING') {
 		sw.skipWaiting();
 	}
 });

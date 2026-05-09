@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getActiveSeason, getSeasonStatsFiltered, getActiveMetrics, getActivePeople } from '$lib/server/db';
+import { requireRole } from '$lib/server/auth';
 
 type DashboardPeriod = 'today' | 'week' | 'month' | 'all';
 
@@ -35,11 +36,7 @@ export const load: PageServerLoad = async ({ locals, depends, url }) => {
 
 	console.log('📄 +page.server.ts load() called, role:', locals.role);
 	
-	// Allow both tracker and admin roles to view the dashboard
-	if (locals.role !== 'tracker' && locals.role !== 'admin') {
-		console.log('📄 Not authorized, returning unauthorized response');
-		return { authorized: false };
-	}
+	requireRole(locals, 'tracker', 'admin');
 
 	try {
 		console.log('📄 Fetching active season...');

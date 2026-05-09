@@ -1,10 +1,9 @@
 import type { PageServerLoad } from './$types';
 import { getActiveSeason, getActivePeople, getActiveMetrics } from '$lib/server/db';
+import { requireRole } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.role !== 'tracker') {
-		return { authorized: false };
-	}
+	requireRole(locals, 'tracker');
 
 	const season = getActiveSeason();
 	const people = getActivePeople();

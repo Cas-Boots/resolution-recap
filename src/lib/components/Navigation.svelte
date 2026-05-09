@@ -15,24 +15,9 @@
 	let menuOpen = $state(false);
 	let darkMode = $state(false);
 	let moreSheetOpen = $state(false);
-	let currentLocale = $state<'en' | 'nl'>('en');
-	let currentTranslations = $state<Translations | null>(null);
 
-	// Subscribe to locale store
-	$effect(() => {
-		const unsubscribe = locale.subscribe(value => {
-			currentLocale = value;
-		});
-		return unsubscribe;
-	});
-
-	// Subscribe to translations store
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			currentTranslations = value;
-		});
-		return unsubscribe;
-	});
+	let currentLocale = $derived($locale);
+	let currentTranslations = $derived($t);
 
 	// Initialize dark mode from localStorage on mount
 	$effect(() => {
@@ -111,8 +96,8 @@
 	}
 
 	async function handleLogout() {
-		await fetch(`${base}/api/auth`, { method: 'DELETE' });
-		onLogout();
+		const res = await fetch(`${base}/api/auth`, { method: 'DELETE' });
+		if (res.ok) onLogout();
 	}
 </script>
 

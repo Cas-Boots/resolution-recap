@@ -1,11 +1,12 @@
 import type { PageServerLoad } from './$types';
-import { 
-	getActiveSeason, 
-	getSeasonStats, 
+import {
+	getActiveSeason,
+	getSeasonStats,
 	getEntriesForSeason,
 	getActivePeople,
 	getActiveMetrics
 } from '$lib/server/db';
+import { requireRole } from '$lib/server/auth';
 
 interface TeaserMessage {
 	emoji: string;
@@ -15,9 +16,7 @@ interface TeaserMessage {
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.role !== 'tracker') {
-		return { authorized: false, teasers: [], stats: null };
-	}
+	requireRole(locals, 'tracker');
 
 	const season = getActiveSeason();
 	if (!season) {
@@ -209,8 +208,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		{ emoji: '⭐', message: 'Consistency is being rewarded...', copy: '⭐ *Consistent*\n\nSommigen blijven gewoon elke week leveren. Respect! 🙌' },
 	];
 
-	// Add 2-3 random cryptic messages
-	const shuffled = crypticMessages.sort(() => Math.random() - 0.5);
+	function fisherYates<T>(arr: T[]): T[] {
+		const a = [...arr];
+		for (let i = a.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[a[i], a[j]] = [a[j], a[i]];
+		}
+		return a;
+	}
+
+	// Add 2 random cryptic messages
+	const shuffled = fisherYates(crypticMessages);
 	for (let i = 0; i < Math.min(2, shuffled.length); i++) {
 		teasers.push({
 			emoji: shuffled[i].emoji,
@@ -228,8 +236,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		{ emoji: '📊', message: 'Midweek motivation needed!', copyText: '📊 *Midweek Motivatie*\n\nWe zijn halverwege de week! Niet vergeten te loggen! 💪' },
 	];
 
-	// Add 1-2 random challenges
-	const shuffledChallenges = challenges.sort(() => Math.random() - 0.5);
+	// Add 1 random challenge
+	const shuffledChallenges = fisherYates(challenges);
 	teasers.push({
 		...shuffledChallenges[0],
 		category: 'challenge'

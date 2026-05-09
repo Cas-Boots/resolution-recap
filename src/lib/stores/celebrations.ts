@@ -28,9 +28,9 @@ function removeToast(id: string) {
 
 function readDedupeMap(): Record<string, number> {
 	if (!browser) return {};
-	const raw = sessionStorage.getItem(DEDUPE_STORAGE_KEY);
-	if (!raw) return {};
 	try {
+		const raw = sessionStorage.getItem(DEDUPE_STORAGE_KEY);
+		if (!raw) return {};
 		return JSON.parse(raw) as Record<string, number>;
 	} catch {
 		return {};
@@ -39,7 +39,11 @@ function readDedupeMap(): Record<string, number> {
 
 function writeDedupeMap(map: Record<string, number>) {
 	if (!browser) return;
-	sessionStorage.setItem(DEDUPE_STORAGE_KEY, JSON.stringify(map));
+	try {
+		sessionStorage.setItem(DEDUPE_STORAGE_KEY, JSON.stringify(map));
+	} catch {
+		// QuotaExceededError or SecurityError (Safari private mode) — degrade silently
+	}
 }
 
 function shouldSuppressAndMark(dedupeKey: string): boolean {

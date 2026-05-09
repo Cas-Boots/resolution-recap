@@ -2,15 +2,14 @@ import type { PageServerLoad } from './$types';
 import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportStatsByPerson, getYearOverYearComparison, getPredictions } from '$lib/server/db';
 import type { StreakData, PersonalBest, ConsistencyData } from '$lib/server/db';
 import { getPlayerStats } from '$lib/leveling';
+import { requireRole } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	if (!locals.role) {
-		return { authorized: false };
-	}
+	requireRole(locals, 'tracker', 'admin');
 
-	const personId = parseInt(params.id);
-	if (isNaN(personId)) {
-		return { authorized: true, error: 'Invalid person ID' };
+	const personId = Number(params.id);
+	if (!Number.isInteger(personId) || personId <= 0) {
+		return { error: 'Invalid person ID' };
 	}
 
 	const season = getActiveSeason();

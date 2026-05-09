@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 
 // Check if we're in build phase - don't initialize DB during build
 // Only check npm_lifecycle_event which is set during npm run build
@@ -35,6 +36,9 @@ function getDb(): DatabaseType {
 
 		// Enable WAL mode for better concurrent access
 		_db.pragma('journal_mode = WAL');
+		_db.pragma('foreign_keys = ON');
+		_db.pragma('synchronous = NORMAL');
+		_db.pragma('busy_timeout = 5000');
 
 		// Initialize schema
 		initializeSchema(_db);
@@ -63,6 +67,11 @@ export const db = new Proxy({} as DatabaseType, {
 		return value;
 	}
 });
+
+function hasColumn(database: DatabaseType, table: string, column: string): boolean {
+	const cols = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+	return cols.some(c => c.name === column);
+}
 
 function initializeSchema(database: DatabaseType) {
 	database.exec(`
@@ -129,63 +138,39 @@ function initializeSchema(database: DatabaseType) {
 	CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
 `);
 
-	// Migration: Add deleted_at column if it doesn't exist (for existing databases)
-	try {
+	// Migrations: add columns to existing tables
+	if (!hasColumn(database, 'entries', 'deleted_at')) {
 		database.exec(`ALTER TABLE entries ADD COLUMN deleted_at TEXT DEFAULT NULL`);
-	} catch {
-		// Column already exists
 	}
-
-	// Migration: Add tags column for sporting activity types
-	try {
+	if (!hasColumn(database, 'entries', 'tags')) {
 		database.exec(`ALTER TABLE entries ADD COLUMN tags TEXT DEFAULT NULL`);
-	} catch {
-		// Column already exists
 	}
+	database.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON entries(deleted_at)`);
 
-	// Create index for deleted_at (after migration ensures column exists)
-	try {
-		database.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON entries(deleted_at)`);
-	} catch {
-		// Index might already exist
-	}
+	database.exec(`
+		CREATE TABLE IF NOT EXISTS entry_audit (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			entry_id INTEGER NOT NULL,
+			action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete', 'undelete')),
+			old_values TEXT,
+			new_values TEXT,
+			performed_by TEXT NOT NULL CHECK (performed_by IN ('tracker', 'admin')),
+			performed_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (entry_id) REFERENCES entries(id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
+	`);
 
-	// Migration: Create entry_audit table if it doesn't exist
-	try {
-		database.exec(`
-			CREATE TABLE IF NOT EXISTS entry_audit (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				entry_id INTEGER NOT NULL,
-				action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete', 'undelete')),
-				old_values TEXT,
-				new_values TEXT,
-				performed_by TEXT NOT NULL CHECK (performed_by IN ('tracker', 'admin')),
-				performed_at TEXT NOT NULL DEFAULT (datetime('now')),
-				FOREIGN KEY (entry_id) REFERENCES entries(id)
-			);
-			CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
-		`);
-	} catch {
-		// Table already exists
-	}
+	database.exec(`
+		CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL,
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)
+	`);
 
-	// Migration: Create settings table if it doesn't exist
-	try {
-		database.exec(`
-			CREATE TABLE IF NOT EXISTS settings (
-				key TEXT PRIMARY KEY,
-				value TEXT NOT NULL,
-				updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-			)
-		`);
-	} catch {
-		// Table already exists
-	}
-
-	// Migration: Add emoji column to people table if it doesn't exist
-	try {
+	if (!hasColumn(database, 'people', 'emoji')) {
 		database.exec(`ALTER TABLE people ADD COLUMN emoji TEXT NOT NULL DEFAULT '👤'`);
-		// Set unique emojis for existing people
 		const defaultEmojis: Record<string, string> = {
 			'Cas': '🎯', 'Joris': '🦁', 'Eva': '🌸', 'Rik': '🎸', 'Liz': '✨', 'Bastiaan': '🚀'
 		};
@@ -193,29 +178,19 @@ function initializeSchema(database: DatabaseType) {
 		for (const [name, emoji] of Object.entries(defaultEmojis)) {
 			updateEmoji.run(emoji, name);
 		}
-	} catch {
-		// Column already exists
 	}
 
-	// Migration: Add emoji column to metrics table if it doesn't exist
-	try {
+	if (!hasColumn(database, 'metrics', 'emoji')) {
 		database.exec(`ALTER TABLE metrics ADD COLUMN emoji TEXT NOT NULL DEFAULT '📊'`);
-		// Set unique emojis for existing metrics
-		const defaultMetricEmojis: Record<string, string> = {
-			'sporting': '🏃', 'cakes eaten': '🎂'
-		};
+		const defaultMetricEmojis: Record<string, string> = { 'sporting': '🏃', 'cakes eaten': '🎂' };
 		const updateMetricEmoji = database.prepare('UPDATE metrics SET emoji = ? WHERE LOWER(name) = LOWER(?)');
 		for (const [name, emoji] of Object.entries(defaultMetricEmojis)) {
 			updateMetricEmoji.run(emoji, name);
 		}
-	} catch {
-		// Column already exists
 	}
 
-	// Migration: Add name_nl column to metrics table for Dutch translations
-	try {
+	if (!hasColumn(database, 'metrics', 'name_nl')) {
 		database.exec(`ALTER TABLE metrics ADD COLUMN name_nl TEXT DEFAULT NULL`);
-		// Set default Dutch translations for existing metrics
 		const defaultMetricTranslations: Record<string, string> = {
 			'sporting': 'Gesport', 'cakes eaten': 'Taart gegeten'
 		};
@@ -223,71 +198,54 @@ function initializeSchema(database: DatabaseType) {
 		for (const [name, nameNl] of Object.entries(defaultMetricTranslations)) {
 			updateMetricNameNl.run(nameNl, name);
 		}
-	} catch {
-		// Column already exists
 	}
 
-	// Migration: Create goals table for tracking targets per person per metric per season
-	try {
-		database.exec(`
-			CREATE TABLE IF NOT EXISTS goals (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				season_id INTEGER NOT NULL,
-				person_id INTEGER NOT NULL,
-				metric_id INTEGER NOT NULL,
-				target INTEGER NOT NULL,
-				created_at TEXT NOT NULL DEFAULT (datetime('now')),
-				updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-				FOREIGN KEY (season_id) REFERENCES seasons(id),
-				FOREIGN KEY (person_id) REFERENCES people(id),
-				FOREIGN KEY (metric_id) REFERENCES metrics(id),
-				UNIQUE(season_id, person_id, metric_id)
-			);
-			CREATE INDEX IF NOT EXISTS idx_goals_season ON goals(season_id);
-		`);
-	} catch {
-		// Table already exists
-	}
+	database.exec(`
+		CREATE TABLE IF NOT EXISTS goals (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			season_id INTEGER NOT NULL,
+			person_id INTEGER NOT NULL,
+			metric_id INTEGER NOT NULL,
+			target INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (season_id) REFERENCES seasons(id),
+			FOREIGN KEY (person_id) REFERENCES people(id),
+			FOREIGN KEY (metric_id) REFERENCES metrics(id),
+			UNIQUE(season_id, person_id, metric_id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_goals_season ON goals(season_id);
+	`);
 
-	// Migration: Create achievements table
-	try {
-		database.exec(`
-			CREATE TABLE IF NOT EXISTS achievements (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				season_id INTEGER NOT NULL,
-				person_id INTEGER NOT NULL,
-				achievement_key TEXT NOT NULL,
-				unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
-				FOREIGN KEY (season_id) REFERENCES seasons(id),
-				FOREIGN KEY (person_id) REFERENCES people(id),
-				UNIQUE(season_id, person_id, achievement_key)
-			);
-			CREATE INDEX IF NOT EXISTS idx_achievements_person ON achievements(person_id);
-		`);
-	} catch {
-		// Table already exists
-	}
+	database.exec(`
+		CREATE TABLE IF NOT EXISTS achievements (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			season_id INTEGER NOT NULL,
+			person_id INTEGER NOT NULL,
+			achievement_key TEXT NOT NULL,
+			unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (season_id) REFERENCES seasons(id),
+			FOREIGN KEY (person_id) REFERENCES people(id),
+			UNIQUE(season_id, person_id, achievement_key)
+		);
+		CREATE INDEX IF NOT EXISTS idx_achievements_person ON achievements(person_id);
+	`);
 
-	// Migration: Create countries_visited table for tracking countries per person per season
-	try {
-		database.exec(`
-			CREATE TABLE IF NOT EXISTS countries_visited (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				season_id INTEGER NOT NULL,
-				person_id INTEGER NOT NULL,
-				country_code TEXT NOT NULL,
-				country_name TEXT NOT NULL,
-				visited_at TEXT NOT NULL DEFAULT (datetime('now')),
-				FOREIGN KEY (season_id) REFERENCES seasons(id),
-				FOREIGN KEY (person_id) REFERENCES people(id),
-				UNIQUE(season_id, person_id, country_code)
-			);
-			CREATE INDEX IF NOT EXISTS idx_countries_visited_person ON countries_visited(person_id);
-			CREATE INDEX IF NOT EXISTS idx_countries_visited_season ON countries_visited(season_id);
-		`);
-	} catch {
-		// Table already exists
-	}
+	database.exec(`
+		CREATE TABLE IF NOT EXISTS countries_visited (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			season_id INTEGER NOT NULL,
+			person_id INTEGER NOT NULL,
+			country_code TEXT NOT NULL,
+			country_name TEXT NOT NULL,
+			visited_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (season_id) REFERENCES seasons(id),
+			FOREIGN KEY (person_id) REFERENCES people(id),
+			UNIQUE(season_id, person_id, country_code)
+		);
+		CREATE INDEX IF NOT EXISTS idx_countries_visited_person ON countries_visited(person_id);
+		CREATE INDEX IF NOT EXISTS idx_countries_visited_season ON countries_visited(season_id);
+	`);
 
 	// Migration: split legacy sporting entries with multiple activity tags into separate entries
 	normalizeLegacySportEntries(database);
@@ -459,22 +417,24 @@ function seedDatabase(database: DatabaseType, dbPath: string) {
 		}
 	}
 
-	// Initialize PINs from environment if not set in database
-	const trackerPin = database.prepare('SELECT value FROM settings WHERE key = ?').get('tracker_pin') as { value: string } | undefined;
-	if (!trackerPin && process.env.TRACKER_PIN) {
-		database.prepare(`
-			INSERT INTO settings (key, value, updated_at) 
-			VALUES (?, ?, datetime('now'))
-			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
-		`).run('tracker_pin', process.env.TRACKER_PIN);
+	// Initialize PINs from environment if not set in database (hashed)
+	const upsertPin = database.prepare(`
+		INSERT INTO settings (key, value, updated_at)
+		VALUES (?, ?, datetime('now'))
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+	`);
+	const trackerPinRow = database.prepare('SELECT value FROM settings WHERE key = ?').get('tracker_pin') as { value: string } | undefined;
+	if (!trackerPinRow && process.env.TRACKER_PIN) {
+		upsertPin.run('tracker_pin', hashPin(process.env.TRACKER_PIN));
+	} else if (trackerPinRow && !isHashedPin(trackerPinRow.value)) {
+		// Upgrade existing plaintext PIN on startup
+		upsertPin.run('tracker_pin', hashPin(trackerPinRow.value));
 	}
-	const adminPin = database.prepare('SELECT value FROM settings WHERE key = ?').get('admin_pin') as { value: string } | undefined;
-	if (!adminPin && process.env.ADMIN_PIN) {
-		database.prepare(`
-			INSERT INTO settings (key, value, updated_at) 
-			VALUES (?, ?, datetime('now'))
-			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
-		`).run('admin_pin', process.env.ADMIN_PIN);
+	const adminPinRow = database.prepare('SELECT value FROM settings WHERE key = ?').get('admin_pin') as { value: string } | undefined;
+	if (!adminPinRow && process.env.ADMIN_PIN) {
+		upsertPin.run('admin_pin', hashPin(process.env.ADMIN_PIN));
+	} else if (adminPinRow && !isHashedPin(adminPinRow.value)) {
+		upsertPin.run('admin_pin', hashPin(adminPinRow.value));
 	}
 }
 
@@ -573,8 +533,10 @@ export function getAllSeasons(): Season[] {
 }
 
 export function setActiveSeason(seasonId: number): void {
-	db.prepare('UPDATE seasons SET is_active = 0').run();
-	db.prepare('UPDATE seasons SET is_active = 1 WHERE id = ?').run(seasonId);
+	db.transaction(() => {
+		db.prepare('UPDATE seasons SET is_active = 0').run();
+		db.prepare('UPDATE seasons SET is_active = 1 WHERE id = ?').run(seasonId);
+	})();
 }
 
 export function createSeason(year: number, name: string): Season {
@@ -675,15 +637,23 @@ export function updateMetric(id: number, name: string, isActive: boolean, emoji?
 }
 
 export function getEntriesForSeason(seasonId: number, includeDeleted = false): EntryWithNames[] {
-	const deletedFilter = includeDeleted ? '' : 'AND e.deleted_at IS NULL';
-	return db.prepare(`
+	const sql = `
 		SELECT e.*, p.name as person_name, p.emoji as person_emoji, m.name as metric_name
 		FROM entries e
 		JOIN people p ON e.person_id = p.id
 		JOIN metrics m ON e.metric_id = m.id
-		WHERE e.season_id = ? ${deletedFilter}
+		WHERE e.season_id = ?
 		ORDER BY e.entry_date DESC, e.created_at DESC
-	`).all(seasonId) as EntryWithNames[];
+	`;
+	const sqlActive = `
+		SELECT e.*, p.name as person_name, p.emoji as person_emoji, m.name as metric_name
+		FROM entries e
+		JOIN people p ON e.person_id = p.id
+		JOIN metrics m ON e.metric_id = m.id
+		WHERE e.season_id = ? AND e.deleted_at IS NULL
+		ORDER BY e.entry_date DESC, e.created_at DESC
+	`;
+	return db.prepare(includeDeleted ? sql : sqlActive).all(seasonId) as EntryWithNames[];
 }
 
 export function getRecentEntries(seasonId: number, limit = 10): EntryWithNames[] {
@@ -978,69 +948,69 @@ export function createEntry(seasonId: number, personId: number, metricId: number
 }
 
 export function updateEntry(id: number, personId: number, metricId: number, entryDate: string, performedBy: 'tracker' | 'admin' = 'tracker', tags?: string | null): void {
-	// Get old values first
-	const oldEntry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
-
-	if (tags !== undefined) {
-		db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ?, tags = ? WHERE id = ?')
-			.run(personId, metricId, entryDate, tags, id);
-	} else {
-		db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ? WHERE id = ?')
-			.run(personId, metricId, entryDate, id);
-	}
-	
-	// Log the update
-	logAudit(id, 'update', performedBy, {
-		person_id: oldEntry.person_id,
-		metric_id: oldEntry.metric_id,
-		entry_date: oldEntry.entry_date,
-		tags: oldEntry.tags ?? null
-	}, {
-		person_id: personId,
-		metric_id: metricId,
-		entry_date: entryDate,
-		tags: tags !== undefined ? tags : oldEntry.tags ?? null
-	});
+	db.transaction(() => {
+		const oldEntry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
+		if (tags !== undefined) {
+			db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ?, tags = ? WHERE id = ?')
+				.run(personId, metricId, entryDate, tags, id);
+		} else {
+			db.prepare('UPDATE entries SET person_id = ?, metric_id = ?, entry_date = ? WHERE id = ?')
+				.run(personId, metricId, entryDate, id);
+		}
+		logAudit(id, 'update', performedBy, {
+			person_id: oldEntry.person_id,
+			metric_id: oldEntry.metric_id,
+			entry_date: oldEntry.entry_date,
+			tags: oldEntry.tags ?? null
+		}, {
+			person_id: personId,
+			metric_id: metricId,
+			entry_date: entryDate,
+			tags: tags !== undefined ? tags : oldEntry.tags ?? null
+		});
+	})();
 }
 
 export function softDeleteEntry(id: number, performedBy: 'tracker' | 'admin' = 'admin'): void {
-	const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
-	
-	db.prepare('UPDATE entries SET deleted_at = datetime("now") WHERE id = ?').run(id);
-	
-	// Log the deletion
-	logAudit(id, 'delete', performedBy, {
-		person_id: entry.person_id,
-		metric_id: entry.metric_id,
-		entry_date: entry.entry_date,
-		notes: entry.notes
-	});
+	db.transaction(() => {
+		const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
+		db.prepare('UPDATE entries SET deleted_at = datetime("now") WHERE id = ?').run(id);
+		logAudit(id, 'delete', performedBy, {
+			person_id: entry.person_id,
+			metric_id: entry.metric_id,
+			entry_date: entry.entry_date,
+			notes: entry.notes
+		});
+	})();
 }
 
 export function softDeleteEntries(ids: number[], performedBy: 'tracker' | 'admin' = 'admin'): void {
-	for (const id of ids) {
-		softDeleteEntry(id, performedBy);
-	}
+	db.transaction(() => {
+		for (const id of ids) {
+			softDeleteEntry(id, performedBy);
+		}
+	})();
 }
 
 export function undeleteEntry(id: number, performedBy: 'tracker' | 'admin' = 'admin'): void {
-	const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
-	
-	db.prepare('UPDATE entries SET deleted_at = NULL WHERE id = ?').run(id);
-	
-	// Log the undelete
-	logAudit(id, 'undelete', performedBy, undefined, {
-		person_id: entry.person_id,
-		metric_id: entry.metric_id,
-		entry_date: entry.entry_date,
-		notes: entry.notes
-	});
+	db.transaction(() => {
+		const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
+		db.prepare('UPDATE entries SET deleted_at = NULL WHERE id = ?').run(id);
+		logAudit(id, 'undelete', performedBy, undefined, {
+			person_id: entry.person_id,
+			metric_id: entry.metric_id,
+			entry_date: entry.entry_date,
+			notes: entry.notes
+		});
+	})();
 }
 
 export function undeleteEntries(ids: number[], performedBy: 'tracker' | 'admin' = 'admin'): void {
-	for (const id of ids) {
-		undeleteEntry(id, performedBy);
-	}
+	db.transaction(() => {
+		for (const id of ids) {
+			undeleteEntry(id, performedBy);
+		}
+	})();
 }
 
 // Keep old function names for compatibility but they now do soft delete
@@ -1139,10 +1109,9 @@ export interface ImportData {
 export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'merge'): { success: boolean; imported: Record<string, number>; errors: string[] } {
 	const imported: Record<string, number> = {};
 	const errors: string[] = [];
-	
+
 	try {
-		db.exec('BEGIN TRANSACTION');
-		
+		db.transaction(() => {
 		if (mode === 'replace') {
 			// Clear existing data (in reverse order of dependencies)
 			db.exec('DELETE FROM entry_audit');
@@ -1283,21 +1252,51 @@ export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'mer
 			}
 		}
 
-		db.exec('COMMIT');
+		})();
 		return { success: true, imported, errors };
 	} catch (e) {
-		db.exec('ROLLBACK');
 		return { success: false, imported, errors: [...errors, (e as Error).message] };
 	}
+}
+
+// PIN hashing helpers (scrypt — zero extra dependencies)
+function hashPin(pin: string): string {
+	const salt = randomBytes(16).toString('hex');
+	const hash = scryptSync(pin, salt, 32);
+	return `${salt}:${hash.toString('hex')}`;
+}
+
+function isHashedPin(stored: string): boolean {
+	// format: 32 hex chars (salt) + ':' + 64 hex chars (hash)
+	return /^[0-9a-f]{32}:[0-9a-f]{64}$/.test(stored);
+}
+
+function checkPin(pin: string, stored: string): boolean {
+	if (isHashedPin(stored)) {
+		const salt = stored.slice(0, 32);
+		const expected = Buffer.from(stored.slice(33), 'hex');
+		const actual = scryptSync(pin, salt, 32) as Buffer;
+		return timingSafeEqual(actual, expected);
+	}
+	// Legacy plaintext — constant-time compare, will be upgraded on success
+	if (pin.length !== stored.length) return false;
+	return timingSafeEqual(Buffer.from(pin), Buffer.from(stored));
 }
 
 // PIN management functions
 export function validatePin(pin: string): 'tracker' | 'admin' | null {
 	const trackerPin = getSetting('tracker_pin');
 	const adminPin = getSetting('admin_pin');
-	
-	if (pin === trackerPin) return 'tracker';
-	if (pin === adminPin) return 'admin';
+
+	if (trackerPin && checkPin(pin, trackerPin)) {
+		// Upgrade plaintext to hash on first successful login
+		if (!isHashedPin(trackerPin)) setSetting('tracker_pin', hashPin(pin));
+		return 'tracker';
+	}
+	if (adminPin && checkPin(pin, adminPin)) {
+		if (!isHashedPin(adminPin)) setSetting('admin_pin', hashPin(pin));
+		return 'admin';
+	}
 	return null;
 }
 
@@ -1305,13 +1304,13 @@ export function changeTrackerPin(newPin: string): { success: boolean; error?: st
 	if (!newPin || newPin.length < 4) {
 		return { success: false, error: 'PIN must be at least 4 characters' };
 	}
-	
+
 	const adminPin = getSetting('admin_pin');
-	if (newPin === adminPin) {
+	if (adminPin && checkPin(newPin, adminPin)) {
 		return { success: false, error: 'Tracker PIN cannot be the same as Admin PIN' };
 	}
-	
-	setSetting('tracker_pin', newPin);
+
+	setSetting('tracker_pin', hashPin(newPin));
 	return { success: true };
 }
 
@@ -1319,13 +1318,13 @@ export function changeAdminPin(newPin: string): { success: boolean; error?: stri
 	if (!newPin || newPin.length < 4) {
 		return { success: false, error: 'PIN must be at least 4 characters' };
 	}
-	
+
 	const trackerPin = getSetting('tracker_pin');
-	if (newPin === trackerPin) {
+	if (trackerPin && checkPin(newPin, trackerPin)) {
 		return { success: false, error: 'Admin PIN cannot be the same as Tracker PIN' };
 	}
-	
-	setSetting('admin_pin', newPin);
+
+	setSetting('admin_pin', hashPin(newPin));
 	return { success: true };
 }
 

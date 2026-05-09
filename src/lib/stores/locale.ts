@@ -2,18 +2,20 @@ import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 import { type Locale, translations, type Translations } from '$lib/i18n';
 
+function safeLocalStorage(action: () => string | null | void): string | null | void {
+	try { return action(); } catch { return null; }
+}
+
 // Get initial locale from localStorage or browser preference
 function getInitialLocale(): Locale {
 	if (!browser) return 'en';
-	
-	// Check localStorage first
-	const stored = localStorage.getItem('locale');
+
+	const stored = safeLocalStorage(() => localStorage.getItem('locale'));
 	if (stored === 'en' || stored === 'nl') return stored;
-	
-	// Fall back to browser language
+
 	const browserLang = navigator.language.toLowerCase();
 	if (browserLang.startsWith('nl')) return 'nl';
-	
+
 	return 'en';
 }
 
@@ -24,17 +26,13 @@ function createLocaleStore() {
 	return {
 		subscribe,
 		set: (locale: Locale) => {
-			if (browser) {
-				localStorage.setItem('locale', locale);
-			}
+			if (browser) safeLocalStorage(() => localStorage.setItem('locale', locale));
 			set(locale);
 		},
 		toggle: () => {
 			update(current => {
 				const newLocale = current === 'en' ? 'nl' : 'en';
-				if (browser) {
-					localStorage.setItem('locale', newLocale);
-				}
+				if (browser) safeLocalStorage(() => localStorage.setItem('locale', newLocale));
 				return newLocale;
 			});
 		}

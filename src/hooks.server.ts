@@ -1,5 +1,6 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import os from 'os';
+import { verifyRole } from '$lib/server/auth';
 
 // Log network interfaces at startup
 function logNetworkInterfaces() {
@@ -75,7 +76,7 @@ initializeDatabase().then(() => {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const startTime = Date.now();
-	const requestId = Math.random().toString(36).substring(7);
+	const requestId = crypto.randomUUID().slice(0, 8);
 	
 	// Log incoming request
 	if (process.env.NODE_ENV === 'production') {
@@ -97,8 +98,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		const role = event.cookies.get('auth_role');
-		event.locals.role = role as 'tracker' | 'admin' | undefined;
+		const role = verifyRole(event.cookies.get('auth_role'));
+		if (!role) event.cookies.delete('auth_role', { path: '/' });
+		event.locals.role = role;
 
 		const response = await resolve(event);
 		
@@ -124,7 +126,7 @@ export const handleError: HandleServerError = async ({ error, event, status, mes
 		return { message, code: 'not-found' };
 	}
 
-	const errorId = Math.random().toString(36).substring(7);
+	const errorId = crypto.randomUUID().slice(0, 8);
 
 	console.error('═══════════════════════════════════════════════════');
 	console.error(`❌ UNHANDLED SERVER ERROR [${errorId}]`);
@@ -140,9 +142,7 @@ export const handleError: HandleServerError = async ({ error, event, status, mes
 	console.error('═══════════════════════════════════════════════════');
 
 	return {
-		message: process.env.NODE_ENV === 'production'
-			? `An unexpected error occurred (${errorId})`
-			: message,
+		message: `An unexpected error occurred (${errorId})`,
 		code: errorId
 	};
 };

@@ -537,7 +537,7 @@ export function translateMetric(metricName: string, locale: Locale, nameNl?: str
 		.replace(/\s+/g, '') as keyof Translations['metrics'];
 	
 	const metricsTranslations = translations[locale].metrics as Record<string, string>;
-	if (metricsTranslations[key]) {
+	if (Object.hasOwn(metricsTranslations, key) && metricsTranslations[key]) {
 		return metricsTranslations[key];
 	}
 	

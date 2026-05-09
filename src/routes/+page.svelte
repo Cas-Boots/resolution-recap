@@ -136,9 +136,7 @@
 	let animatingCounters = $state<Set<string>>(new Set());
 
 	// Check if pending action is for sporting
-	let isSportingAction = $derived(() => {
-		return pendingAction?.metricName?.toLowerCase() === 'sporting';
-	});
+	let isSportingAction = $derived(pendingAction?.metricName?.toLowerCase() === 'sporting');
 
 	// Sort metrics with Sporting first, then by name
 	const sortedMetrics = $derived.by(() => {
@@ -340,6 +338,10 @@
 			try {
 				const res = await fetchWithTimeout(`${base}/api/dashboard/secondary`, { cache: 'no-store' }, 8000);
 				if (!res.ok) {
+					if (res.status === 401) {
+						await invalidateAll();
+						return;
+					}
 					serverReachable = false;
 					return;
 				}
@@ -772,7 +774,7 @@
 
 	async function confirmAction() {
 		if (!pendingAction || !data.season) return;
-		if (isSportingAction() && !selectedSportTag) return;
+		if (isSportingAction && !selectedSportTag) return;
 
 		loading = true;
 		
@@ -1064,7 +1066,7 @@
 				{/if}
 				
 				<!-- Sport activity selection -->
-				{#if isSportingAction()}
+				{#if isSportingAction}
 					<div class="mb-3 sm:mb-4">
 						<p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">What activity? (select one)</p>
 						<div class="flex flex-wrap gap-1.5 sm:gap-2 justify-center max-h-40 sm:max-h-48 overflow-y-auto">
@@ -1093,7 +1095,7 @@
 					</button>
 					<button
 						onclick={confirmAction}
-						disabled={loading || (isSportingAction() && !selectedSportTag)}
+						disabled={loading || (isSportingAction && !selectedSportTag)}
 						class="flex-1 py-2.5 sm:py-3 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-semibold rounded-xl disabled:opacity-50 transition-colors text-sm sm:text-base"
 					>
 						{loading ? '...' : duplicateWarning ? 'Add anyway' : 'Confirm'}

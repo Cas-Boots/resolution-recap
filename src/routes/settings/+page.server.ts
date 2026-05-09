@@ -1,11 +1,10 @@
 import type { PageServerLoad } from './$types';
 import { getAllPeople, getAllMetrics, getActiveSeason, getGoalsForSeason, getCountriesVisitedForSeason } from '$lib/server/db';
 import { getSortedCountries } from '$lib/countries';
+import { requireRole } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.role !== 'tracker') {
-		return { authorized: false };
-	}
+	requireRole(locals, 'tracker');
 
 	const people = getAllPeople();
 	const metrics = getAllMetrics();

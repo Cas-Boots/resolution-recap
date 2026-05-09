@@ -19,7 +19,7 @@
 	function shareToWhatsApp() {
 		const encodedText = encodeURIComponent(text);
 		// WhatsApp Web/Mobile universal link
-		window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+		window.open(`https://wa.me/?text=${encodedText}`, '_blank', 'noopener,noreferrer');
 	}
 
 	async function copyToClipboard() {

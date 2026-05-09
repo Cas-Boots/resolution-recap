@@ -76,7 +76,8 @@ export const LEVELS: Level[] = [
 ];
 
 // Get level for a given XP amount
-export function getLevelForXP(xp: number): Level {
+export function getLevelForXP(rawXp: number): Level {
+	const xp = Math.max(0, rawXp || 0);
 	for (let i = LEVELS.length - 1; i >= 0; i--) {
 		if (xp >= LEVELS[i].minXP) {
 			return LEVELS[i];
@@ -86,17 +87,19 @@ export function getLevelForXP(xp: number): Level {
 }
 
 // Get progress percentage to next level
-export function getLevelProgress(xp: number): number {
+export function getLevelProgress(rawXp: number): number {
+	const xp = Math.max(0, rawXp || 0);
 	const currentLevel = getLevelForXP(xp);
 	if (currentLevel.maxXP === Infinity) return 100;
-	
+
 	const xpInLevel = xp - currentLevel.minXP;
 	const levelRange = currentLevel.maxXP - currentLevel.minXP + 1;
 	return Math.min(100, Math.round((xpInLevel / levelRange) * 100));
 }
 
 // Get XP needed for next level
-export function getXPToNextLevel(xp: number): number {
+export function getXPToNextLevel(rawXp: number): number {
+	const xp = Math.max(0, rawXp || 0);
 	const currentLevel = getLevelForXP(xp);
 	if (currentLevel.maxXP === Infinity) return 0;
 	return currentLevel.maxXP - xp + 1;

@@ -28,14 +28,3 @@
 	class="animate-pulse bg-gray-200 dark:bg-gray-700 {roundedClasses[rounded]} {className}"
 	style="width: {width}; height: {height};"
 ></div>
-
-<style>
-	@keyframes shimmer {
-		0% {
-			background-position: -200% 0;
-		}
-		100% {
-			background-position: 200% 0;
-		}
-	}
-</style>

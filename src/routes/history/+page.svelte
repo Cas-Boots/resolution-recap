@@ -387,10 +387,10 @@ Participants
 <div>
 <div class="font-semibold text-gray-900 dark:text-white text-lg">{stats.person_name}</div>
 <div class="flex flex-wrap gap-1 mt-1">
-{#each Array(stats.championships) as _}
+{#each Array(stats.championships) as _, i (i)}
 <span class="text-sm" title="Championship">🏆</span>
 {/each}
-{#each Array(stats.podiums - stats.championships) as _}
+{#each Array(stats.podiums - stats.championships) as _, i (i)}
 <span class="text-sm" title="Podium finish">🏅</span>
 {/each}
 </div>

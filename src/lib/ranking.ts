@@ -8,11 +8,12 @@
 export function getRank<T>(index: number, items: T[], getValue: (item: T) => number): number {
 	if (index === 0) return 1;
 	const currentValue = getValue(items[index]);
-	const previousValue = getValue(items[index - 1]);
-	if (currentValue === previousValue) {
-		return getRank(index - 1, items, getValue);
+	let i = index - 1;
+	while (i > 0 && getValue(items[i]) === currentValue) {
+		i--;
 	}
-	return index + 1;
+	if (getValue(items[i]) === currentValue) return 1;
+	return i + 2;
 }
 
 /**

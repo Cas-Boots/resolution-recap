@@ -76,14 +76,8 @@
 	let lastEntry = $state<{ id: number; personName: string; metricName: string; date: string } | null>(null);
 
 	// Season date bounds
-	let seasonMinDate = $derived(() => {
-		if (!data.season?.year) return undefined;
-		return `${data.season.year}-01-01`;
-	});
-	let seasonMaxDate = $derived(() => {
-		if (!data.season?.year) return undefined;
-		return `${data.season.year}-12-31`;
-	});
+	let seasonMinDate = $derived(data.season?.year ? `${data.season.year}-01-01` : undefined);
+	let seasonMaxDate = $derived(data.season?.year ? `${data.season.year}-12-31` : undefined);
 
 	async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 5000): Promise<Response> {
 		const controller = new AbortController();
@@ -111,11 +105,9 @@
 	}
 
 	// Check if the selected metric is "Sporting"
-	let isSportingMetric = $derived(() => {
-		if (!metricId) return false;
-		const metric = data.metrics?.find(m => m.id === metricId);
-		return metric?.name?.toLowerCase() === 'sporting';
-	});
+	let isSportingMetric = $derived(
+		!!metricId && data.metrics?.find(m => m.id === metricId)?.name?.toLowerCase() === 'sporting'
+	);
 
 	// Check for duplicates when person, metric, or date changes
 	async function checkForDuplicate() {
@@ -156,7 +148,7 @@
 	}
 
 	$effect(() => {
-		if (!isSportingMetric()) {
+		if (!isSportingMetric) {
 			selectedTag = null;
 		}
 	});
@@ -177,7 +169,7 @@
 			}
 		}
 
-		if (isSportingMetric() && !selectedTag) {
+		if (isSportingMetric && !selectedTag) {
 			error = 'Please select the specific sporting activity.';
 			return;
 		}
@@ -292,7 +284,7 @@
 			</div>
 
 			<!-- Activity Type (only for Sporting) -->
-			{#if isSportingMetric()}
+			{#if isSportingMetric}
 				<div>
 					<p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						Activity Type <span class="text-gray-400 dark:text-gray-500">(select one)</span>
@@ -328,8 +320,8 @@
 					type="date"
 					id="date"
 					bind:value={entryDate}
-					min={seasonMinDate()}
-					max={seasonMaxDate()}
+					min={seasonMinDate}
+					max={seasonMaxDate}
 					class="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:outline-none text-lg"
 				/>
 				{#if data.season?.year}
@@ -428,7 +420,7 @@
 
 			<button
 				type="submit"
-				disabled={loading || !personId || !metricId || (isSportingMetric() && !selectedTag)}
+				disabled={loading || !personId || !metricId || (isSportingMetric && !selectedTag)}
 				class="w-full py-4 {duplicateWarning ? 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400'} text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-indigo-500/25 dark:shadow-indigo-500/40"
 			>
 				{loading ? 'Adding...' : duplicateWarning ? '⚠️ Add anyway' : '➕ Add Entry'}

@@ -1,14 +1,10 @@
 import { env } from '$env/dynamic/private';
+import { timingSafeEqual } from 'node:crypto';
 
-function getBackupToken(url: URL, authHeader: string | null): string {
-	const queryToken = url.searchParams.get('token');
-	if (queryToken) return queryToken;
-	if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7).trim();
-	return '';
-}
-
-export function isAuthorizedBackup(url: URL, authHeader: string | null): boolean {
+export function isAuthorizedBackup(_url: URL, authHeader: string | null): boolean {
 	const expected = env.BACKUP_TOKEN;
 	if (!expected) return false;
-	return getBackupToken(url, authHeader) === expected;
+	const provided = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+	if (!provided || provided.length !== expected.length) return false;
+	return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }

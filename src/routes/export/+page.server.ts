@@ -1,11 +1,10 @@
 import type { PageServerLoad } from './$types';
 import { getActiveSeason, getSeasonStatsInRange, getActiveMetrics, getActivePeople, getGoalsForSeason, getMonthlyStats, getStreaks, getEntriesForSeason } from '$lib/server/db';
 import type { StreakData } from '$lib/server/db';
+import { requireRole } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (locals.role !== 'tracker') {
-		return { authorized: false };
-	}
+	requireRole(locals, 'tracker');
 
 	const season = getActiveSeason();
 	if (!season) {
