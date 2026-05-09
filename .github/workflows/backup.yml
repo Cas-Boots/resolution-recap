@@ -21,7 +21,7 @@ jobs:
     env:
       APP_URL: ${{ secrets.APP_URL }}
       BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,6 +42,9 @@ jobs:
       - name: Define backup filename
         run: echo "BACKUP_FILE=backups/backup-$(date -u +%Y-%m-%d).json" >> "$GITHUB_ENV"
 
+      - name: Define DB backup filename
+        run: echo "DB_BACKUP_FILE=backups/db-$(date -u +%Y-%m-%d).db.gz" >> "$GITHUB_ENV"
+
       - name: Create backups directory
         run: mkdir -p backups
 
@@ -53,6 +56,18 @@ jobs:
             -H "Authorization: Bearer $BACKUP_TOKEN" \
             "$APP_URL/api/export" \
             -o "$BACKUP_FILE"
+
+      - name: Fetch SQLite backup from server
+        run: |
+          curl --fail --show-error --silent \
+            --retry 3 --retry-delay 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 120 \
+            -H "Authorization: Bearer $BACKUP_TOKEN" \
+            -D /tmp/db-response-headers.txt \
+            "$APP_URL/api/backup/db" \
+            -o "$DB_BACKUP_FILE"
+          ROW_COUNTS=$(grep -i '^x-backup-row-counts:' /tmp/db-response-headers.txt | cut -d':' -f2- | tr -d '[:space:]') || true
+          echo "Server row counts: ${ROW_COUNTS:-unknown}"
 
       - name: Check if backup was successful
         run: |
@@ -72,9 +87,58 @@ if not isinstance(payload, dict) or not required.issubset(payload.keys()):
     sys.exit(1)
 PY
 
-      - name: Remove backups older than 30 days
+      - name: Verify backup consistency
         run: |
-          find backups -name "backup-*.json" -mtime +30 -delete || true
+          gunzip -c "$DB_BACKUP_FILE" > /tmp/snapshot.db
+          python - <<'PY'
+          import json, os, subprocess, sys
+
+          json_path = os.environ['BACKUP_FILE']
+          sqlite_path = '/tmp/snapshot.db'
+
+          with open(json_path, 'r', encoding='utf-8') as f:
+              jdata = json.load(f)
+
+          tables = ['seasons', 'people', 'metrics', 'entries', 'entry_audit', 'goals', 'achievements', 'countries_visited']
+          core_tables = ['seasons', 'people', 'metrics', 'entries']
+          failures = []
+
+          print(f"\n{'Table':<25} {'SQLite':<10} {'JSON':<10} Status")
+          print('-' * 55)
+
+          for table in tables:
+              result = subprocess.run(
+                  ['sqlite3', sqlite_path, f'SELECT COUNT(*) FROM {table}'],
+                  capture_output=True, text=True
+              )
+              if result.returncode != 0:
+                  failures.append(f'{table}: table missing from SQLite ({result.stderr.strip()})')
+                  print(f'{table:<25} {"missing":<10} {"-":<10} ERROR')
+                  continue
+
+              sqlite_count = int(result.stdout.strip())
+              json_count = len(jdata.get(table, []) or [])
+
+              if sqlite_count != json_count:
+                  failures.append(f'{table}: SQLite={sqlite_count}, JSON={json_count}')
+                  status = 'MISMATCH'
+              elif table in core_tables and sqlite_count == 0:
+                  failures.append(f'{table}: core table is empty')
+                  status = 'EMPTY'
+              else:
+                  status = 'OK'
+
+              print(f'{table:<25} {sqlite_count:<10} {json_count:<10} {status}')
+
+          print()
+          if failures:
+              print('VERIFICATION FAILED:')
+              for f in failures:
+                  print(f'  - {f}')
+              sys.exit(1)
+
+          print('All checks passed.')
+          PY
 
       - name: Rebase on latest main
         run: |
@@ -84,6 +148,6 @@ PY
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add backups/
+          git add "$BACKUP_FILE" "$DB_BACKUP_FILE"
           git diff --staged --quiet || git commit -m "Daily backup $(date -u +%Y-%m-%d)"
           git push
