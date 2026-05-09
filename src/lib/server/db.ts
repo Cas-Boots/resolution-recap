@@ -1108,12 +1108,16 @@ export function getSeasonStatsInRange(seasonId: number, startDate: string, endDa
 
 export function exportAllData() {
 	return {
+		exportSchemaVersion: 2,
 		seasons: db.prepare('SELECT * FROM seasons').all(),
 		people: db.prepare('SELECT * FROM people').all(),
 		metrics: db.prepare('SELECT * FROM metrics').all(),
 		entries: db.prepare('SELECT * FROM entries').all(),
 		entry_audit: db.prepare('SELECT * FROM entry_audit').all(),
 		settings: db.prepare('SELECT key, updated_at FROM settings').all(), // Don't export PIN values!
+		goals: db.prepare('SELECT * FROM goals').all(),
+		achievements: db.prepare('SELECT * FROM achievements').all(),
+		countries_visited: db.prepare('SELECT * FROM countries_visited').all(),
 		exportedAt: new Date().toISOString()
 	};
 }
@@ -1122,8 +1126,12 @@ export interface ImportData {
 	seasons?: Array<{ id: number; year: number; name: string; is_active: number; created_at: string }>;
 	people?: Array<{ id: number; name: string; emoji: string; is_active: number; created_at: string }>;
 	metrics?: Array<{ id: number; name: string; emoji: string; is_active: number; created_at: string }>;
-	entries?: Array<{ id: number; person_id: number; metric_id: number; season_id: number; value: number; date: string; notes: string | null; created_at: string; updated_at: string }>;
-	entry_audit?: Array<{ id: number; entry_id: number; action: string; old_value: string | null; new_value: string | null; changed_at: string; changed_by: string }>;
+	entries?: Array<{ id: number; season_id: number; person_id: number; metric_id: number; entry_date: string; notes: string | null; deleted_at: string | null; tags: string | null; created_at: string }>;
+	entry_audit?: Array<{ id: number; entry_id: number; action: string; old_values: string | null; new_values: string | null; performed_at: string; performed_by: string }>;
+	goals?: Array<{ id: number; season_id: number; person_id: number; metric_id: number; target: number; created_at: string; updated_at: string }>;
+	achievements?: Array<{ id: number; season_id: number; person_id: number; achievement_key: string; unlocked_at: string }>;
+	countries_visited?: Array<{ id: number; season_id: number; person_id: number; country_code: string; country_name: string; visited_at: string }>;
+	exportSchemaVersion?: number;
 	exportedAt?: string;
 }
 
@@ -1139,7 +1147,8 @@ export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'mer
 			db.exec('DELETE FROM entry_audit');
 			db.exec('DELETE FROM entries');
 			db.exec('DELETE FROM goals');
-			db.exec('DELETE FROM country_visits');
+			db.exec('DELETE FROM achievements');
+			db.exec('DELETE FROM countries_visited');
 			db.exec('DELETE FROM metrics');
 			db.exec('DELETE FROM people');
 			db.exec('DELETE FROM seasons');
@@ -1196,12 +1205,12 @@ export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'mer
 		// Import entries
 		if (data.entries && data.entries.length > 0) {
 			const insertEntry = db.prepare(`
-				INSERT OR REPLACE INTO entries (id, person_id, metric_id, season_id, value, date, notes, created_at, updated_at)
+				INSERT OR REPLACE INTO entries (id, season_id, person_id, metric_id, entry_date, notes, deleted_at, tags, created_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 			for (const entry of data.entries) {
 				try {
-					insertEntry.run(entry.id, entry.person_id, entry.metric_id, entry.season_id, entry.value, entry.date, entry.notes, entry.created_at, entry.updated_at);
+					insertEntry.run(entry.id, entry.season_id, entry.person_id, entry.metric_id, entry.entry_date, entry.notes, entry.deleted_at, entry.tags, entry.created_at);
 					imported.entries = (imported.entries || 0) + 1;
 				} catch (e) {
 					errors.push(`Entry ${entry.id}: ${(e as Error).message}`);
@@ -1212,19 +1221,67 @@ export function importAllData(data: ImportData, mode: 'merge' | 'replace' = 'mer
 		// Import entry_audit
 		if (data.entry_audit && data.entry_audit.length > 0) {
 			const insertAudit = db.prepare(`
-				INSERT OR REPLACE INTO entry_audit (id, entry_id, action, old_value, new_value, changed_at, changed_by)
+				INSERT OR REPLACE INTO entry_audit (id, entry_id, action, old_values, new_values, performed_at, performed_by)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`);
 			for (const audit of data.entry_audit) {
 				try {
-					insertAudit.run(audit.id, audit.entry_id, audit.action, audit.old_value, audit.new_value, audit.changed_at, audit.changed_by);
+					insertAudit.run(audit.id, audit.entry_id, audit.action, audit.old_values, audit.new_values, audit.performed_at, audit.performed_by);
 					imported.entry_audit = (imported.entry_audit || 0) + 1;
 				} catch (e) {
 					errors.push(`Audit ${audit.id}: ${(e as Error).message}`);
 				}
 			}
 		}
-		
+
+		// Import goals
+		if (data.goals && data.goals.length > 0) {
+			const insertGoal = db.prepare(`
+				INSERT OR REPLACE INTO goals (id, season_id, person_id, metric_id, target, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`);
+			for (const goal of data.goals) {
+				try {
+					insertGoal.run(goal.id, goal.season_id, goal.person_id, goal.metric_id, goal.target, goal.created_at, goal.updated_at);
+					imported.goals = (imported.goals || 0) + 1;
+				} catch (e) {
+					errors.push(`Goal ${goal.id}: ${(e as Error).message}`);
+				}
+			}
+		}
+
+		// Import achievements
+		if (data.achievements && data.achievements.length > 0) {
+			const insertAchievement = db.prepare(`
+				INSERT OR REPLACE INTO achievements (id, season_id, person_id, achievement_key, unlocked_at)
+				VALUES (?, ?, ?, ?, ?)
+			`);
+			for (const achievement of data.achievements) {
+				try {
+					insertAchievement.run(achievement.id, achievement.season_id, achievement.person_id, achievement.achievement_key, achievement.unlocked_at);
+					imported.achievements = (imported.achievements || 0) + 1;
+				} catch (e) {
+					errors.push(`Achievement ${achievement.id}: ${(e as Error).message}`);
+				}
+			}
+		}
+
+		// Import countries_visited
+		if (data.countries_visited && data.countries_visited.length > 0) {
+			const insertCountry = db.prepare(`
+				INSERT OR REPLACE INTO countries_visited (id, season_id, person_id, country_code, country_name, visited_at)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`);
+			for (const country of data.countries_visited) {
+				try {
+					insertCountry.run(country.id, country.season_id, country.person_id, country.country_code, country.country_name, country.visited_at);
+					imported.countries_visited = (imported.countries_visited || 0) + 1;
+				} catch (e) {
+					errors.push(`Country ${country.id}: ${(e as Error).message}`);
+				}
+			}
+		}
+
 		db.exec('COMMIT');
 		return { success: true, imported, errors };
 	} catch (e) {
