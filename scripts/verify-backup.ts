@@ -39,7 +39,14 @@ function main() {
     console.log('-'.repeat(55));
 
     for (const table of ALL_TABLES) {
-        const sqliteCount = (db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get() as { c: number }).c;
+        let sqliteCount: number;
+        try {
+            sqliteCount = (db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get() as { c: number }).c;
+        } catch {
+            failures.push(`${table}: table missing from SQLite snapshot`);
+            console.log(table.padEnd(25) + 'missing'.padEnd(10) + '-'.padEnd(10) + 'ERROR');
+            continue;
+        }
         const jsonArr = Array.isArray(jsonData[table]) ? jsonData[table] as unknown[] : [];
         const jsonCount = jsonArr.length;
 
