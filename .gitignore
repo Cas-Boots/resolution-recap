@@ -31,6 +31,9 @@ data/
 .vscode/
 .idea/
 
+# Worktrees
+.worktrees/
+
 # Logs
 *.log
 npm-debug.log*
