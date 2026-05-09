@@ -119,7 +119,7 @@
 				aria-label="Cumulative progress chart for {personName}"
 			>
 				<defs>
-					<linearGradient id="personActualGrad_{personName}" x1="0%" y1="0%" x2="0%" y2="100%">
+					<linearGradient id="personActualGrad_{personName.replace(/\s+/g, '-')}" x1="0%" y1="0%" x2="0%" y2="100%">
 						<stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
 						<stop offset="100%" stop-color="#6366f1" stop-opacity="0.04" />
 					</linearGradient>
@@ -150,7 +150,7 @@
 
 				<!-- Area fill (actual) -->
 				<polygon
-					fill="url(#personActualGrad_{personName})"
+					fill="url(#personActualGrad_{personName.replace(/\s+/g, '-')})"
 					points={areaPoints}
 					opacity="0.6"
 				/>

@@ -181,31 +181,31 @@
 		<div class="flex gap-2 overflow-x-auto pb-2">
 			<button
 				onclick={() => activeTab = 'overview'}
-				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}"
+				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
 				📊 {translations?.stats.overview ?? 'Overview'}
 			</button>
 			<button
 				onclick={() => activeTab = 'insights'}
-				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'insights' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}"
+				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'insights' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
 				✨ Insights
 			</button>
 			<button
 				onclick={() => activeTab = 'calendar'}
-				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'calendar' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}"
+				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'calendar' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
 				📅 {translations?.stats.calendar ?? 'Calendar'}
 			</button>
 			<button
 				onclick={() => activeTab = 'achievements'}
-				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'achievements' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}"
+				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'achievements' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
 				🏅 {translations?.achievements.title ?? 'Badges'} ({unlockedKeys.size}/{data.allAchievements?.length || 0})
 			</button>
 			<button
 				onclick={() => activeTab = 'compare'}
-				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}"
+				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
 				⚔️ {translations?.stats.compare ?? 'Compare'}
 			</button>
@@ -268,14 +268,14 @@
 		{/if}
 
 		<!-- Quick nav to other people -->
-		<div class="bg-white rounded-xl shadow p-4">
-			<h3 class="text-sm font-medium text-gray-600 mb-2">View other people:</h3>
+		<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+			<h3 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">View other people:</h3>
 			<div class="flex flex-wrap gap-2">
 				{#each data.people || [] as person}
 					{#if person.id !== data.person?.id}
 						<a
 							href="{base}/person/{person.id}"
-							class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+							class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300"
 						>
 							{person.emoji} {person.name}
 						</a>

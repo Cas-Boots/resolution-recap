@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportStatsByPerson, getYearOverYearComparison, getPredictions, get2025SportingBaselines } from '$lib/server/db';
+import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportStatsByPerson, getYearOverYearComparison, getPredictions } from '$lib/server/db';
 import type { StreakData, PersonalBest, ConsistencyData } from '$lib/server/db';
 import { getPlayerStats } from '$lib/leveling';
 
@@ -123,9 +123,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const allPredictions = getPredictions(season.id, currentDayOfYear);
 	const prediction = allPredictions.find(p => p.person_name === person.name) || null;
 
-	const baselines2025 = get2025SportingBaselines();
-	const baseline2025 = baselines2025.get(person.name) || null;
-
 	return {
 		authorized: true,
 		role: locals.role,
@@ -151,7 +148,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		sportStats,
 		dayOfWeekStats,
 		yearOverYear,
-		prediction,
-		baseline2025
+		prediction
 	};
 };
