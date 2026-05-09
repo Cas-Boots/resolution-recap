@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 
-export function getBackupToken(url: URL, authHeader: string | null): string {
+function getBackupToken(url: URL, authHeader: string | null): string {
 	const queryToken = url.searchParams.get('token');
 	if (queryToken) return queryToken;
 	if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7).trim();
@@ -8,5 +8,7 @@ export function getBackupToken(url: URL, authHeader: string | null): string {
 }
 
 export function isAuthorizedBackup(url: URL, authHeader: string | null): boolean {
-	return getBackupToken(url, authHeader) === env.BACKUP_TOKEN;
+	const expected = env.BACKUP_TOKEN;
+	if (!expected) return false;
+	return getBackupToken(url, authHeader) === expected;
 }

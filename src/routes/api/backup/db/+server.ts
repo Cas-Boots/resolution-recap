@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { execSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, unlinkSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
@@ -28,19 +27,16 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
 
 	try {
 		// Create SQLite backup to temp file
-		try {
-			execSync(`sqlite3 "${dbPath}" ".backup '${tempFile}'"`, { stdio: 'pipe' });
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			return json(
-				{ error: 'sqlite3 not available or backup failed', detail: message },
-				{ status: 500 }
-			);
-		}
+		await (db as any).backup(tempFile);
 
 		// Read and gzip the backup
-		const rawBuffer = readFileSync(tempFile);
-		const gzipped = gzipSync(rawBuffer);
+		let gzipped: Buffer;
+		try {
+			gzipped = gzipSync(readFileSync(tempFile));
+		} catch (err) {
+			const detail = err instanceof Error ? err.message : String(err);
+			return json({ error: 'Failed to compress backup', detail }, { status: 500 });
+		}
 
 		// Compute row counts from the original db
 		const counts: string[] = [];
