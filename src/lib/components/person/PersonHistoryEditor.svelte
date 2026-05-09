@@ -238,7 +238,7 @@
 	}
 </script>
 
-{#if role === 'tracker' || role === 'admin'}
+{#if role === 'tracker'}
 <!-- Entry History Editor -->
 <div class="bg-white rounded-xl shadow-lg p-4">
 	<div class="flex items-center justify-between gap-3 mb-3">
