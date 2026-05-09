@@ -1,10 +1,10 @@
 import type { PageServerLoad } from './$types';
-import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats } from '$lib/server/db';
-import type { StreakData } from '$lib/server/db';
+import { getActiveSeason, getActiveMetrics, getActivePeople, getGoalsForSeason, getStreaks, getEntriesForSeasonInRange, getPersonAchievements, ACHIEVEMENTS, checkAndUnlockAchievements, getLegacyBadgesForPerson, getHistoricalSeasons, getPersonXPStats, getPersonalBests, getConsistencyScores, getCumulativeStats, getStreakWarnings, getSportStatsByPerson, getYearOverYearComparison, getPredictions } from '$lib/server/db';
+import type { StreakData, PersonalBest, ConsistencyData } from '$lib/server/db';
 import { getPlayerStats } from '$lib/leveling';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	if (locals.role !== 'tracker') {
+	if (!locals.role) {
 		return { authorized: false };
 	}
 
@@ -80,9 +80,52 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	// Get XP stats for leveling system
 	const xpStats = getPersonXPStats(season.id, personId);
 	const playerStats = getPlayerStats(xpStats);
-	
+
+	// Day-of-year helper for time-based aggregations
+	const now = new Date();
+	const yearStart = new Date(season.year, 0, 1);
+	const currentDayOfYear = Math.floor((now.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+	// New aggregations
+	const allPersonalBests = getPersonalBests(season.id);
+	const personalBests = allPersonalBests[personId] || [];
+
+	const allConsistency = getConsistencyScores(season.id);
+	const consistency = allConsistency.find(c => c.person_id === personId) || null;
+
+	const allCumulative = getCumulativeStats(season.id);
+	const cumulativeStats = allCumulative.filter(c => c.person_id === personId);
+
+	const allStreakWarnings = getStreakWarnings(season.id);
+	const streakWarnings = allStreakWarnings.filter(w => w.person_id === personId);
+
+	const allSportStats = getSportStatsByPerson(season.id);
+	const sportStats = allSportStats.find(s => s.person_id === personId) || null;
+
+	// Build per-person day-of-week stats from personEntries (getDayOfWeekStats is global)
+	const dayOfWeekCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+	for (const entry of personEntries) {
+		const d = new Date(`${entry.entry_date}T00:00:00`).getDay();
+		dayOfWeekCounts[d] = (dayOfWeekCounts[d] || 0) + 1;
+	}
+	const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+	const totalDayEntries = Object.values(dayOfWeekCounts).reduce((a, b) => a + b, 0);
+	const dayOfWeekStats = dayNames.map((day, index) => ({
+		day,
+		dayIndex: index,
+		count: dayOfWeekCounts[index],
+		percentage: totalDayEntries > 0 ? Math.round((dayOfWeekCounts[index] / totalDayEntries) * 100) : 0
+	}));
+
+	const allYearOverYear = getYearOverYearComparison(season.id, currentDayOfYear);
+	const yearOverYear = allYearOverYear.find(y => y.person_name === person.name) || null;
+
+	const allPredictions = getPredictions(season.id, currentDayOfYear);
+	const prediction = allPredictions.find(p => p.person_name === person.name) || null;
+
 	return {
 		authorized: true,
+		role: locals.role,
 		season,
 		person,
 		people,
@@ -96,6 +139,15 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		allAchievements: ACHIEVEMENTS,
 		legacyBadges,
 		historicalSeasons,
-		playerStats
+		playerStats,
+		// New fields:
+		personalBests,
+		consistency,
+		cumulativeStats,
+		streakWarnings,
+		sportStats,
+		dayOfWeekStats,
+		yearOverYear,
+		prediction
 	};
 };

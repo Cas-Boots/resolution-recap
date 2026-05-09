@@ -48,8 +48,9 @@
 		const adminPath = `${base}/admin`;
 		const trackerPath = `${base}/`;
 		const isAdminPath = currentPath === adminPath || currentPath.startsWith(`${adminPath}/`);
+		const isPersonPath = currentPath.startsWith(`${base}/person/`);
 
-		if (currentRole === 'admin' && !isAdminPath) {
+		if (currentRole === 'admin' && !isAdminPath && !isPersonPath) {
 			roleRedirectInFlight = true;
 			try {
 				await goto(adminPath);
