@@ -14,6 +14,9 @@
 	import { pushAchievementCelebrations, pushMilestoneCelebration } from '$lib/stores/celebrations';
 	import type { Translations, Locale } from '$lib/i18n';
 	import { translateMetric } from '$lib/i18n';
+	import Sparkline from '$lib/components/stats/Sparkline.svelte';
+	import StreakBadge from '$lib/components/stats/StreakBadge.svelte';
+	import WeeklyDiffBadge from '$lib/components/stats/WeeklyDiffBadge.svelte';
 
 	// Subscribe to translations and locale
 	let translations = $state<Translations | null>(null);
@@ -643,15 +646,6 @@
 		return map;
 	});
 
-	const sparklinePathMap = $derived.by(() => {
-		const paths = new Map<string, string>();
-		for (const [key, values] of sparklineMap.entries()) {
-			if (values.some(v => v > 0)) {
-				paths.set(key, getSparklinePath(values));
-			}
-		}
-		return paths;
-	});
 
 	// Build weekly comparison lookup: Map<"personId-metricId", { thisWeek: number, lastWeek: number, diff: number }>
 	const weeklyComparisonMap = $derived.by(() => {
@@ -1016,25 +1010,8 @@
 		}
 	}
 
-	// Generate SVG sparkline path
-	function getSparklinePath(values: number[]): string {
-		if (!values || values.length === 0) return '';
-		const max = Math.max(...values, 1);
-		const width = 60;
-		const height = 20;
-		const step = width / (values.length - 1);
-		
-		const points = values.map((v, i) => {
-			const x = i * step;
-			const y = height - (v / max) * height;
-			return `${x},${y}`;
-		});
-		
-		return `M${points.join(' L')}`;
-	}
-
 	// Get weekly diff indicator
-	function getWeeklyDiff(personId: number, metricId: number): { diff: number; thisWeek: number } | null {
+	function getWeeklyDiff(personId: number, metricId: number): { diff: number; thisWeek: number; lastWeek: number } | null {
 		const key = `${personId}-${metricId}`;
 		return weeklyComparisonMap.get(key) || null;
 	}
@@ -1452,7 +1429,7 @@
 								{@const metricId = row.metrics[metric]?.metricId}
 								{@const optimisticCount = getOptimisticCount(row.personId, metric, row.metrics[metric]?.count || 0)}
 								{@const hasOptimistic = optimisticUpdates.has(`${row.personId}-${metric}`)}
-								{@const sparklinePath = sparklinePathMap.get(`${row.personId}-${metricId}`) || ''}
+								{@const sparklineValues = sparklineMap.get(`${row.personId}-${metricId}`) || []}
 								{@const weeklyDiff = metricId ? getWeeklyDiff(row.personId, metricId) : null}
 								{@const streak = metricId ? getStreak(row.personId, metricId) : null}
 								{@const goal = metricId ? getGoalProgress(row.personId, metricId) : null}
@@ -1465,19 +1442,19 @@
 										{optimisticCount}
 									</div>
 									<div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 truncate">{getTranslatedMetricName(metric)}</div>
-									
-									<!-- Streak indicator -->
-									{#if streak && streak.current > 0}
-										<div class="text-[9px] sm:text-[10px] text-orange-500 font-medium mt-0.5">
-											🔥 {streak.current}d
+
+									<!-- Streak badge -->
+									{#if streak}
+										<div class="mt-0.5 flex justify-center">
+											<StreakBadge current={streak.current} longest={streak.longest} />
 										</div>
 									{/if}
-									
+
 									<!-- Goal progress bar -->
 									{#if goal}
 										<div class="mt-1.5 sm:mt-2">
 											<div class="h-1 sm:h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-												<div 
+												<div
 													class="h-full rounded-full transition-all {goal.percentage >= 100 ? 'bg-green-500' : 'bg-indigo-500'}"
 													style="width: {goal.percentage}%"
 												></div>
@@ -1485,26 +1462,16 @@
 											<div class="text-[9px] sm:text-[10px] text-gray-400 mt-0.5">{goal.current}/{goal.target}</div>
 										</div>
 									{/if}
-									
+
 									<!-- Weekly comparison badge -->
-									{#if weeklyDiff && weeklyDiff.diff !== 0}
-										<div class="absolute -top-1 -right-1 px-1 sm:px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold {weeklyDiff.diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}">
-											{weeklyDiff.diff > 0 ? '+' : ''}{weeklyDiff.diff}
+									{#if weeklyDiff}
+										<div class="mt-0.5 flex justify-center">
+											<WeeklyDiffBadge thisWeek={weeklyDiff.thisWeek} lastWeek={weeklyDiff.lastWeek} />
 										</div>
 									{/if}
-									
+
 									<!-- Mini sparkline -->
-									{#if sparklinePath}
-										<svg class="w-full h-4 mt-1 opacity-50" viewBox="0 0 60 20" preserveAspectRatio="none">
-											<path 
-												d={sparklinePath} 
-												fill="none" 
-												stroke="currentColor" 
-												stroke-width="2"
-												class="text-indigo-400"
-											/>
-										</svg>
-									{/if}
+									<Sparkline values={sparklineValues} class="w-full h-4 mt-1" />
 								</button>
 							{/each}
 						</div>
@@ -1571,41 +1538,31 @@
 									{@const metricId = row.metrics[metric]?.metricId}
 									{@const optimisticCount = getOptimisticCount(row.personId, metric, row.metrics[metric]?.count || 0)}
 									{@const hasOptimistic = optimisticUpdates.has(`${row.personId}-${metric}`)}
-									{@const sparklinePath = sparklinePathMap.get(`${row.personId}-${metricId}`) || ''}
+									{@const sparklineValues = sparklineMap.get(`${row.personId}-${metricId}`) || []}
 									{@const weeklyDiff = metricId ? getWeeklyDiff(row.personId, metricId) : null}
 									{@const streak = metricId ? getStreak(row.personId, metricId) : null}
 									{@const goal = metricId ? getGoalProgress(row.personId, metricId) : null}
 									{@const isAnimating = animatingCounters.has(`${row.personId}-${metric}`)}
 									<td class="px-6 py-4 text-center">
 										<div class="flex flex-col items-center gap-1">
-											<div class="relative">
-												<button
-													onclick={() => showConfirmation(row.personId, row.personName, row.personEmoji, row.metrics[metric]?.metricId, metric)}
-													class="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 hover:scale-110 transition-all group {hasOptimistic ? 'animate-pulse ring-2 ring-green-400' : ''} {isAnimating ? 'counter-animate' : ''}"
-													title="Click to add +1"
-												>
-													{optimisticCount}
-												</button>
-												<!-- Weekly comparison badge -->
-												{#if weeklyDiff && weeklyDiff.diff !== 0}
-													<div class="absolute -top-1 -right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold {weeklyDiff.diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}">
-														{weeklyDiff.diff > 0 ? '+' : ''}{weeklyDiff.diff}
-													</div>
-												{/if}
-											</div>
-											
-											<!-- Streak indicator -->
-											{#if streak && streak.current > 0}
-												<div class="text-[10px] text-orange-500 font-medium">
-													🔥 {streak.current}d
-												</div>
+											<button
+												onclick={() => showConfirmation(row.personId, row.personName, row.personEmoji, row.metrics[metric]?.metricId, metric)}
+												class="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 hover:scale-110 transition-all group {hasOptimistic ? 'animate-pulse ring-2 ring-green-400' : ''} {isAnimating ? 'counter-animate' : ''}"
+												title="Click to add +1"
+											>
+												{optimisticCount}
+											</button>
+
+											<!-- Streak badge -->
+											{#if streak}
+												<StreakBadge current={streak.current} longest={streak.longest} />
 											{/if}
-											
+
 											<!-- Goal progress bar -->
 											{#if goal}
 												<div class="w-16">
 													<div class="h-1 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-														<div 
+														<div
 															class="h-full rounded-full transition-all {goal.percentage >= 100 ? 'bg-green-500' : 'bg-indigo-500'}"
 															style="width: {goal.percentage}%"
 														></div>
@@ -1613,23 +1570,14 @@
 													<div class="text-[9px] text-gray-400 text-center">{goal.current}/{goal.target}</div>
 												</div>
 											{/if}
-											
-											<!-- Mini sparkline -->
-											{#if sparklinePath}
-												<svg class="w-16 h-4 opacity-60" viewBox="0 0 60 20" preserveAspectRatio="none">
-													<path 
-														d={sparklinePath} 
-														fill="none" 
-														stroke="currentColor" 
-														stroke-width="2"
-														class="text-indigo-400"
-													/>
-												</svg>
-											{:else}
-												<div class="w-16 h-4 flex items-center justify-center">
-													<span class="text-[10px] text-gray-300">no data</span>
-												</div>
+
+											<!-- Weekly comparison badge -->
+											{#if weeklyDiff}
+												<WeeklyDiffBadge thisWeek={weeklyDiff.thisWeek} lastWeek={weeklyDiff.lastWeek} />
 											{/if}
+
+											<!-- Mini sparkline -->
+											<Sparkline values={sparklineValues} class="w-16 h-4" />
 										</div>
 									</td>
 								{/each}

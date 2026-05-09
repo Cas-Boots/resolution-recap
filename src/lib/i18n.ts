@@ -110,6 +110,15 @@ export interface Translations {
 		martialArts: string;
 		dance: string;
 		hyrox: string;
+		kayaking: string;
+		rafting: string;
+		rowing: string;
+		bootcamp: string;
+		pilates: string;
+		badminton: string;
+		squash: string;
+		tableTennis: string;
+		korfball: string;
 		other: string;
 	};
 	
@@ -272,6 +281,15 @@ export const translations: Record<Locale, Translations> = {
 			martialArts: 'Martial Arts',
 			dance: 'Dance',
 			hyrox: 'Hyrox',
+			kayaking: 'Kayaking',
+			rafting: 'Rafting',
+			rowing: 'Rowing',
+			bootcamp: 'Bootcamp',
+			pilates: 'Pilates',
+			badminton: 'Badminton',
+			squash: 'Squash',
+			tableTennis: 'Table Tennis',
+			korfball: 'Korfball',
 			other: 'Other',
 		},
 		
@@ -429,6 +447,15 @@ export const translations: Record<Locale, Translations> = {
 			martialArts: 'Vechtsporten',
 			dance: 'Dansen',
 			hyrox: 'Hyrox',
+			kayaking: 'Kajakken',
+			rafting: 'Raften',
+			rowing: 'Roeien',
+			bootcamp: 'Bootcamp',
+			pilates: 'Pilates',
+			badminton: 'Badminton',
+			squash: 'Squash',
+			tableTennis: 'Tafeltennis',
+			korfball: 'Korfbal',
 			other: 'Anders',
 		},
 		

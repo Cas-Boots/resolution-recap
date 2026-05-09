@@ -22,32 +22,91 @@
 	});
 
 	// Predefined sport activity types - reactive for translations
-	const SPORT_ACTIVITIES = $derived([
-		{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
-		{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
-		{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
-		{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
-		{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
-		{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
-		{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
-		{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
-		{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
-		{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
-		{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
-		{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
-		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
-		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
-		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-		{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
-		{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
-		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
-		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
-		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
-		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
-		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
-		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
-		{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
-		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
+	const SPORT_GROUPS = $derived([
+		{
+			label: 'Cardio',
+			sports: [
+				{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
+				{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
+				{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
+			]
+		},
+		{
+			label: 'Water',
+			sports: [
+				{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
+				{ value: 'kayaking', label: `🛶 ${translations?.sports.kayaking ?? 'Kayaking'}` },
+				{ value: 'rafting', label: `🚣 ${translations?.sports.rafting ?? 'Rafting'}` },
+				{ value: 'rowing', label: `🚣 ${translations?.sports.rowing ?? 'Rowing'}` },
+			]
+		},
+		{
+			label: 'Gym & Fitness',
+			sports: [
+				{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
+				{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
+				{ value: 'bootcamp', label: `💪 ${translations?.sports.bootcamp ?? 'Bootcamp'}` },
+				{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
+			]
+		},
+		{
+			label: 'Mind & Body',
+			sports: [
+				{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
+				{ value: 'pilates', label: `🧘 ${translations?.sports.pilates ?? 'Pilates'}` },
+			]
+		},
+		{
+			label: 'Racket',
+			sports: [
+				{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
+				{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
+				{ value: 'badminton', label: `🏸 ${translations?.sports.badminton ?? 'Badminton'}` },
+				{ value: 'squash', label: `🎾 ${translations?.sports.squash ?? 'Squash'}` },
+				{ value: 'table-tennis', label: `🏓 ${translations?.sports.tableTennis ?? 'Table Tennis'}` },
+			]
+		},
+		{
+			label: 'Team',
+			sports: [
+				{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
+				{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
+				{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
+				{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
+				{ value: 'korfball', label: `🏐 ${translations?.sports.korfball ?? 'Korfball'}` },
+			]
+		},
+		{
+			label: 'Climbing',
+			sports: [
+				{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
+				{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
+			]
+		},
+		{
+			label: 'Winter',
+			sports: [
+				{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
+				{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
+				{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
+				{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
+				{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
+			]
+		},
+		{
+			label: 'Combat',
+			sports: [
+				{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
+				{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
+			]
+		},
+		{
+			label: 'Other',
+			sports: [
+				{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
+				{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` },
+			]
+		},
 	]);
 
 	// Emoji mapping for metrics
@@ -314,17 +373,24 @@
 					<p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						Activity Type <span class="text-gray-400 dark:text-gray-500">(select one)</span>
 					</p>
-					<div class="flex flex-wrap gap-2" role="group" aria-label="Activity type selection">
-						{#each SPORT_ACTIVITIES as activity}
-							<button
-								type="button"
-								onclick={() => selectTag(activity.value)}
-								class="px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 border-2 {selectedTag === activity.value 
-									? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-400 shadow-lg shadow-indigo-500/40' 
-									: 'bg-white dark:bg-gray-700/80 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-500 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/40'}"
-							>
-								{activity.label}
-							</button>
+					<div class="space-y-3" role="group" aria-label="Activity type selection">
+						{#each SPORT_GROUPS as group}
+							<div>
+								<p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">{group.label}</p>
+								<div class="flex flex-wrap gap-2">
+									{#each group.sports as activity}
+										<button
+											type="button"
+											onclick={() => selectTag(activity.value)}
+											class="px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 border-2 {selectedTag === activity.value
+												? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-400 shadow-lg shadow-indigo-500/40'
+												: 'bg-white dark:bg-gray-700/80 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-500 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/40'}"
+										>
+											{activity.label}
+										</button>
+									{/each}
+								</div>
+							</div>
 						{/each}
 					</div>
 					<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Each sporting activity must be logged as a separate entry.</p>
