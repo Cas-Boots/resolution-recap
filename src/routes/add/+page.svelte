@@ -2,8 +2,10 @@
 	import type { PageData } from './$types';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { t } from '$lib/stores/locale.svelte';
+	import { getT } from '$lib/stores/locale.svelte';
 	import { pushAchievementCelebrations } from '$lib/stores/celebrations.svelte';
+
+	const t = $derived(getT());
 	import { groupedSports } from '$lib/sports';
 
 	interface Props {

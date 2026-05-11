@@ -3,20 +3,25 @@
 	import { goto, invalidate, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { 
-		initOfflineSupport, 
-		createEntryWithOfflineFallback, 
-		pendingEntriesCount, 
-		isOnline, 
-		syncPendingEntries 
+	import {
+		initOfflineSupport,
+		createEntryWithOfflineFallback,
+		getPendingEntriesCount,
+		getIsOnline,
+		syncPendingEntries
 	} from '$lib/stores/offlineQueue.svelte';
-	import { locale, t } from '$lib/stores/locale.svelte';
+	import { getLocale, getT } from '$lib/stores/locale.svelte';
 	import { pushAchievementCelebrations, pushMilestoneCelebration } from '$lib/stores/celebrations.svelte';
 	import { SPORTS, canonicalSportTag } from '$lib/sports';
 	import { translateMetric } from '$lib/i18n';
 	import Sparkline from '$lib/components/stats/Sparkline.svelte';
 	import StreakBadge from '$lib/components/stats/StreakBadge.svelte';
 	import WeeklyDiffBadge from '$lib/components/stats/WeeklyDiffBadge.svelte';
+
+	const locale = $derived(getLocale());
+	const t = $derived(getT());
+	const pendingEntriesCount = $derived(getPendingEntriesCount());
+	const isOnline = $derived(getIsOnline());
 
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 		if (typeof metric === 'string') {

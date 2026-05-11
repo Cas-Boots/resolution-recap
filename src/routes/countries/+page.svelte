@@ -5,7 +5,9 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getRank, getMedal } from '$lib/ranking';
-	import { t } from '$lib/stores/locale.svelte';
+	import { getT } from '$lib/stores/locale.svelte';
+
+	const t = $derived(getT());
 
 	interface Props {
 		data: PageData;

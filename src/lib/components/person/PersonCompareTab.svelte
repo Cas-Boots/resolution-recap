@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Metric, Person } from '$lib/server/db';
-	import { locale } from '$lib/stores/locale.svelte';
+	import { getLocale } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
+
+	const locale = $derived(getLocale());
 
 	interface Comparison {
 		personId: number;

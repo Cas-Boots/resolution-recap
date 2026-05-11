@@ -3,8 +3,11 @@ import type { PageData } from './$types';
 import { base } from '$app/paths';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
-import { locale, t } from '$lib/stores/locale.svelte';
+import { getLocale, getT } from '$lib/stores/locale.svelte';
 import { translateMetric } from '$lib/i18n';
+
+const locale = $derived(getLocale());
+const t = $derived(getT());
 
 interface Props {
 data: PageData;

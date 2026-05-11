@@ -2,7 +2,10 @@
 	import type { PageData } from './$types';
 	import { base } from '$app/paths';
 	import type { PlayerStats } from '$lib/leveling';
-	import { locale, t } from '$lib/stores/locale.svelte';
+	import { getLocale, getT } from '$lib/stores/locale.svelte';
+
+	const locale = $derived(getLocale());
+	const t = $derived(getT());
 
 	import PersonOverviewTab from '$lib/components/person/PersonOverviewTab.svelte';
 	import PersonInsightsTab from '$lib/components/person/PersonInsightsTab.svelte';

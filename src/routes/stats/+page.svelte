@@ -8,8 +8,11 @@
 	import StatsCalendarTab from '$lib/components/stats/StatsCalendarTab.svelte';
 	import StatsInsightsTab from '$lib/components/stats/StatsInsightsTab.svelte';
 	import StatsCompareTab from '$lib/components/stats/StatsCompareTab.svelte';
-	import { locale, t } from '$lib/stores/locale.svelte';
+	import { getLocale, getT } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
+
+	const locale = $derived(getLocale());
+	const t = $derived(getT());
 
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 		if (typeof metric === 'string') {

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Metric, Season } from '$lib/server/db';
-	import { locale } from '$lib/stores/locale.svelte';
+	import { getLocale } from '$lib/stores/locale.svelte';
 	import type { Locale } from '$lib/i18n';
+
+	const locale = $derived(getLocale());
 	import { translateMetric } from '$lib/i18n';
 
 	interface Props {

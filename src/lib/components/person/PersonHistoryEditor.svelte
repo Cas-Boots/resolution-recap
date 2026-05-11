@@ -2,8 +2,11 @@
 	import type { Metric, Person, Season, EntryWithNames } from '$lib/server/db';
 	import { base } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
-	import { locale, t } from '$lib/stores/locale.svelte';
+	import { getLocale, getT } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
+
+	const locale = $derived(getLocale());
+	const t = $derived(getT());
 	import { groupedSports, findSport, canonicalSportTag, LEGACY_SPORT_DISPLAY } from '$lib/sports';
 
 	interface Props {

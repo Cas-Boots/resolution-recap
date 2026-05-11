@@ -63,14 +63,15 @@ function shouldSuppressAndMark(dedupeKey: string): boolean {
 }
 
 export function removeCelebration(id: string) {
-	celebrations = celebrations.filter((toast) => toast.id !== id);
+	const idx = celebrations.findIndex((t) => t.id === id);
+	if (idx !== -1) celebrations.splice(idx, 1);
 }
 
 function enqueueToast(toast: Omit<CelebrationToast, 'id'>, dedupeKey: string) {
 	if (shouldSuppressAndMark(dedupeKey)) return;
 
 	const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-	celebrations = [...celebrations, { id, ...toast }];
+	celebrations.push({ id, ...toast });
 
 	if (browser) {
 		setTimeout(() => removeCelebration(id), TOAST_DURATION_MS);

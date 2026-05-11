@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { PlayerStats } from '$lib/leveling';
 	import type { Metric, GoalWithNames, StreakData, EntryWithNames, ConsistencyData, Prediction, YearOverYearComparison } from '$lib/server/db';
-	import { locale } from '$lib/stores/locale.svelte';
+	import { getLocale } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
+
+	const locale = $derived(getLocale());
 	import PersonInsightCard from './PersonInsightCard.svelte';
 
 	interface Props {

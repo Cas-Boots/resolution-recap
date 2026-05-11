@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
 	import { browser } from '$app/environment';
-	import { locale, t, toggleLocale } from '$lib/stores/locale.svelte';
+	import { getLocale, getT, toggleLocale } from '$lib/stores/locale.svelte';
 
 	interface Props {
 		role: 'tracker' | 'admin';
@@ -15,6 +15,8 @@
 	let darkMode = $state(false);
 	let moreSheetOpen = $state(false);
 
+	const locale = $derived(getLocale());
+	const t = $derived(getT());
 	let currentLocale = $derived(locale);
 	let currentTranslations = $derived(t);
 

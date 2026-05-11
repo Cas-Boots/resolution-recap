@@ -17,19 +17,21 @@ function getInitialLocale(): Locale {
 	return 'en';
 }
 
-export let locale = $state<Locale>(getInitialLocale());
+let _locale = $state<Locale>(getInitialLocale());
 
-export const t = $derived(translations[locale]);
+export function getLocale(): Locale { return _locale; }
+
+export function getT(): typeof translations[Locale] { return translations[_locale]; }
 
 export function setLocale(value: Locale) {
 	if (browser) safeLocalStorage(() => localStorage.setItem('locale', value));
-	locale = value;
+	_locale = value;
 }
 
 export function toggleLocale() {
-	const next: Locale = locale === 'en' ? 'nl' : 'en';
+	const next: Locale = _locale === 'en' ? 'nl' : 'en';
 	if (browser) safeLocalStorage(() => localStorage.setItem('locale', next));
-	locale = next;
+	_locale = next;
 }
 
 export function getTranslation(transl: Translations, path: string): string {

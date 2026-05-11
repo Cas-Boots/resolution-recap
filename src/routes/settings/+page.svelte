@@ -2,7 +2,9 @@
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { t } from '$lib/stores/locale.svelte';
+	import { getT } from '$lib/stores/locale.svelte';
+
+	const t = $derived(getT());
 
 	interface Props {
 		data: PageData;

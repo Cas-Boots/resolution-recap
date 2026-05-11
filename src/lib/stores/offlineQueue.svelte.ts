@@ -18,8 +18,11 @@ const DB_NAME = 'recap-offline';
 const STORE_NAME = 'pending-entries';
 const DB_VERSION = 1;
 
-export let pendingEntriesCount = $state(0);
-export let isOnline = $state(true);
+let _pendingEntriesCount = $state(0);
+let _isOnline = $state(true);
+
+export function getPendingEntriesCount(): number { return _pendingEntriesCount; }
+export function getIsOnline(): boolean { return _isOnline; }
 
 let db: IDBDatabase | null = null;
 let dbInitPromise: Promise<IDBDatabase> | null = null;
@@ -125,7 +128,7 @@ async function removeFromQueue(id: string): Promise<void> {
 
 async function updatePendingCount(): Promise<void> {
 	const entries = await getPendingEntries();
-	pendingEntriesCount = entries.length;
+	_pendingEntriesCount = entries.length;
 }
 
 export async function syncPendingEntries(): Promise<{ synced: number; failed: number }> {
@@ -190,10 +193,10 @@ export function initOfflineSupport(): (() => void) | void {
 	if (listenersInitialized) return;
 	listenersInitialized = true;
 
-	isOnline = navigator.onLine;
+	_isOnline = navigator.onLine;
 
 	onlineHandler = async () => {
-		isOnline = true;
+		_isOnline = true;
 		const result = await syncPendingEntries();
 		if (result.synced > 0) {
 			console.log(`Synced ${result.synced} offline entries`);
@@ -207,7 +210,7 @@ export function initOfflineSupport(): (() => void) | void {
 	};
 
 	offlineHandler = () => {
-		isOnline = false;
+		_isOnline = false;
 	};
 
 	window.addEventListener('online', onlineHandler);
