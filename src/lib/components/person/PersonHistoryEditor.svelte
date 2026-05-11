@@ -5,6 +5,7 @@
 	import { locale, t } from '$lib/stores/locale';
 	import type { Translations, Locale } from '$lib/i18n';
 	import { translateMetric } from '$lib/i18n';
+	import { groupedSports, findSport, canonicalSportTag, LEGACY_SPORT_DISPLAY } from '$lib/sports';
 
 	interface Props {
 		entries: EntryWithNames[];
@@ -40,33 +41,15 @@
 		return translateMetric(metric.name, currentLocale, metric.name_nl);
 	}
 
-	const SPORT_ACTIVITIES = $derived([
-		{ value: 'running', label: `🏃 ${translations?.sports.running ?? 'Running'}` },
-		{ value: 'cycling', label: `🚴 ${translations?.sports.cycling ?? 'Cycling'}` },
-		{ value: 'swimming', label: `🏊 ${translations?.sports.swimming ?? 'Swimming'}` },
-		{ value: 'gym', label: `🏋️ ${translations?.sports.gym ?? 'Gym'}` },
-		{ value: 'yoga', label: `🧘 ${translations?.sports.yoga ?? 'Yoga'}` },
-		{ value: 'hiking', label: `🥾 ${translations?.sports.hiking ?? 'Hiking'}` },
-		{ value: 'tennis', label: `🎾 ${translations?.sports.tennis ?? 'Tennis'}` },
-		{ value: 'padel', label: `🎾 ${translations?.sports.padel ?? 'Padel'}` },
-		{ value: 'football', label: `⚽ ${translations?.sports.football ?? 'Football'}` },
-		{ value: 'basketball', label: `🏀 ${translations?.sports.basketball ?? 'Basketball'}` },
-		{ value: 'hockey', label: `🏑 ${translations?.sports.hockey ?? 'Hockey'}` },
-		{ value: 'volleyball', label: `🏐 ${translations?.sports.volleyball ?? 'Volleyball'}` },
-		{ value: 'climbing', label: `🧗 ${translations?.sports.climbing ?? 'Climbing'}` },
-		{ value: 'bouldering', label: `🧗 ${translations?.sports.bouldering ?? 'Bouldering'}` },
-		{ value: 'skiing', label: `⛷️ ${translations?.sports.skiing ?? 'Skiing'}` },
-		{ value: 'ice-skating', label: `⛸️ ${translations?.sports.iceSkating ?? 'Ice Skating'}` },
-		{ value: 'road-skating', label: `🛼 ${translations?.sports.roadSkating ?? 'Road Skating'}` },
-		{ value: 'snowboarding', label: `🏂 ${translations?.sports.snowboarding ?? 'Snowboarding'}` },
-		{ value: 'sledding', label: `🛷 ${translations?.sports.sledding ?? 'Sledding'}` },
-		{ value: 'physio', label: `🧑‍⚕️ ${translations?.sports.physio ?? 'Physio'}` },
-		{ value: 'boxing', label: `🥊 ${translations?.sports.boxing ?? 'Boxing'}` },
-		{ value: 'martial-arts', label: `🥋 ${translations?.sports.martialArts ?? 'Martial Arts'}` },
-		{ value: 'dance', label: `💃 ${translations?.sports.dance ?? 'Dance'}` },
-		{ value: 'hyrox', label: `🏆 ${translations?.sports.hyrox ?? 'Hyrox'}` },
-		{ value: 'other', label: `🏅 ${translations?.sports.other ?? 'Other'}` }
-	]);
+	const SPORT_GROUPS = $derived(
+		groupedSports().map(group => ({
+			label: group.label,
+			sports: group.sports.map(s => ({
+				value: s.value,
+				label: `${s.emoji} ${translations?.sports[s.translationKey] ?? s.englishLabel}`
+			}))
+		}))
+	);
 
 	let historyFilterDate = $state('');
 	let editingEntry = $state<{ id: number; metricId: number; entryDate: string; tag: string | null } | null>(null);
@@ -108,16 +91,16 @@
 	}
 
 	function getSportTagLabel(tag: string): string {
-		const raw = tag.trim().toLowerCase();
-		const normalized =
-			raw === 'skating' ? 'ice-skating' :
-			raw === 'inline-skating' || raw === 'skeeleren' ? 'road-skating' :
-			raw;
-		const found = SPORT_ACTIVITIES.find((activity) => activity.value === normalized);
-		if (found) return found.label;
-		return normalized
+		const canonical = canonicalSportTag(tag);
+		const sport = findSport(canonical);
+		if (sport) {
+			return `${sport.emoji} ${translations?.sports[sport.translationKey] ?? sport.englishLabel}`;
+		}
+		const legacy = LEGACY_SPORT_DISPLAY[canonical];
+		if (legacy) return `${legacy.emoji} ${legacy.englishLabel}`;
+		return canonical
 			.split('-')
-			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+			.map(p => p.charAt(0).toUpperCase() + p.slice(1))
 			.join(' ');
 	}
 
@@ -331,15 +314,22 @@
 				{#if isSportingEdit}
 					<div>
 						<div class="block text-sm font-medium text-gray-700 mb-2">Sport Activity</div>
-						<div class="flex flex-wrap gap-2">
-							{#each SPORT_ACTIVITIES as activity}
-								<button
-									type="button"
-									onclick={() => toggleEditTag(activity.value)}
-									class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors {editingEntry?.tag === activity.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}"
-								>
-									{activity.label}
-								</button>
+						<div class="space-y-3">
+							{#each SPORT_GROUPS as group}
+								<div>
+									<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{group.label}</p>
+									<div class="flex flex-wrap gap-2">
+										{#each group.sports as activity}
+											<button
+												type="button"
+												onclick={() => toggleEditTag(activity.value)}
+												class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors {editingEntry?.tag === activity.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}"
+											>
+												{activity.label}
+											</button>
+										{/each}
+									</div>
+								</div>
 							{/each}
 						</div>
 						<div class="text-xs text-gray-500 mt-2">Each sporting activity must be logged as a separate entry.</div>
