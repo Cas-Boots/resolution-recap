@@ -1,13 +1,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import * as v from 'valibot';
 import { changeTrackerPin, changeAdminPin } from '$lib/server/db';
+import { checkAuth } from '$lib/server/handlers';
+import { PinChangeSchema } from '$lib/server/schemas';
 
 export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
 	if (locals.role !== 'admin') {
 		return json({ error: 'Unauthorized - Admin only' }, { status: 403 });
 	}
 
-	const { type, newPin } = await request.json();
+	const parsed = v.safeParse(PinChangeSchema, await request.json());
+	if (!parsed.success) return json({ error: 'Invalid input', issues: v.flatten(parsed.issues) }, { status: 400 });
+	const { type, newPin } = parsed.output;
 
 	if (type === 'tracker') {
 		const result = changeTrackerPin(newPin);

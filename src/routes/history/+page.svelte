@@ -3,8 +3,7 @@ import type { PageData } from './$types';
 import { base } from '$app/paths';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
-import { locale, t } from '$lib/stores/locale';
-import type { Translations, Locale } from '$lib/i18n';
+import { locale, t } from '$lib/stores/locale.svelte';
 import { translateMetric } from '$lib/i18n';
 
 interface Props {
@@ -13,28 +12,11 @@ data: PageData;
 
 let { data }: Props = $props();
 
-// Subscribe to translations and locale
-let translations = $state<Translations | null>(null);
-let currentLocale = $state<Locale>('en');
-$effect(() => {
-	const unsubscribe = t.subscribe(value => {
-		translations = value;
-	});
-	return unsubscribe;
-});
-$effect(() => {
-	const unsubscribe = locale.subscribe(value => {
-		currentLocale = value;
-	});
-	return unsubscribe;
-});
-
-// Helper to translate metric names - accepts metric object or just name string
 function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 	if (typeof metric === 'string') {
-		return translateMetric(metric, currentLocale);
+		return translateMetric(metric, locale);
 	}
-	return translateMetric(metric.name, currentLocale, metric.name_nl);
+	return translateMetric(metric.name, locale, metric.name_nl);
 }
 
 // Tab state
@@ -188,7 +170,7 @@ return max;
 <div class="flex items-center justify-between flex-wrap gap-4">
 <div>
 <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-<span>📜</span> {translations?.nav.history ?? 'History'}
+<span>📜</span> {t.nav.history ?? 'History'}
 </h1>
 <p class="text-gray-500 dark:text-gray-400 mt-1">
 Our journey through the years
@@ -320,7 +302,7 @@ class="flex items-center justify-between p-3 rounded-lg transition-colors
 {formatScore(result.score)}
 </span>
 <span class="text-sm text-gray-500 dark:text-gray-400 ml-1">
-{season.metric === 'Sporting' ? (currentLocale === 'nl' ? 'sessies' : 'sessions') : (currentLocale === 'nl' ? 'taarten' : 'cakes')}
+{season.metric === 'Sporting' ? (locale === 'nl' ? 'sessies' : 'sessions') : (locale === 'nl' ? 'taarten' : 'cakes')}
 </span>
 {:else}
 <span class="text-gray-400 dark:text-gray-500 italic">
@@ -340,7 +322,7 @@ No data
 {season.results.reduce((sum, r) => sum + (r.score || 0), 0)}
 </div>
 <div class="text-sm text-gray-500 dark:text-gray-400">
-Total {season.metric === 'Sporting' ? (currentLocale === 'nl' ? 'Sessies' : 'Sessions') : (currentLocale === 'nl' ? 'Taarten' : 'Cakes')}
+Total {season.metric === 'Sporting' ? (locale === 'nl' ? 'Sessies' : 'Sessions') : (locale === 'nl' ? 'Taarten' : 'Cakes')}
 </div>
 </div>
 <div>

@@ -8,32 +8,14 @@
 	import StatsCalendarTab from '$lib/components/stats/StatsCalendarTab.svelte';
 	import StatsInsightsTab from '$lib/components/stats/StatsInsightsTab.svelte';
 	import StatsCompareTab from '$lib/components/stats/StatsCompareTab.svelte';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations, Locale } from '$lib/i18n';
+	import { locale, t } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
 
-	// Subscribe to translations and locale
-	let translations = $state<Translations | null>(null);
-	let currentLocale = $state<Locale>('en');
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
-	$effect(() => {
-		const unsubscribe = locale.subscribe(value => {
-			currentLocale = value;
-		});
-		return unsubscribe;
-	});
-
-	// Helper to translate metric names - accepts metric object or just name string
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 		if (typeof metric === 'string') {
-			return translateMetric(metric, currentLocale);
+			return translateMetric(metric, locale);
 		}
-		return translateMetric(metric.name, currentLocale, metric.name_nl);
+		return translateMetric(metric.name, locale, metric.name_nl);
 	}
 
 	interface Props {
@@ -828,7 +810,7 @@ return { days: allDays, maxCount, weeks };
 	<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 transition-colors duration-200">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">📈 {translations?.nav.stats ?? 'Stats'}</h1>
+				<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">📈 {t.nav.stats ?? 'Stats'}</h1>
 				{#if data.season}
 					<p class="text-gray-500 dark:text-gray-400">{data.season.name}</p>
 				{/if}
@@ -870,43 +852,43 @@ return { days: allDays, maxCount, weeks };
 				onclick={() => switchTab('overview')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'overview' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🏆 {translations?.stats.overview ?? 'Overview'}
+				🏆 {t.stats.overview ?? 'Overview'}
 			</button>
 			<button
 				onclick={() => switchTab('goals')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'goals' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🎯 {translations?.stats.goals ?? 'Goals'}
+				🎯 {t.stats.goals ?? 'Goals'}
 			</button>
 			<button
 				onclick={() => switchTab('monthly')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'monthly' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				📅 {translations?.stats.monthly ?? 'Monthly'}
+				📅 {t.stats.monthly ?? 'Monthly'}
 			</button>
 			<button
 				onclick={() => switchTab('streaks')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'streaks' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				🔥 {translations?.stats.streaks ?? 'Streaks'}
+				🔥 {t.stats.streaks ?? 'Streaks'}
 			</button>
 			<button
 				onclick={() => switchTab('calendar')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				📆 {translations?.stats.calendar ?? 'Calendar'}
+				📆 {t.stats.calendar ?? 'Calendar'}
 			</button>
 			<button
 				onclick={() => switchTab('insights')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'insights' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				💡 {translations?.stats.insights ?? 'Insights'}
+				💡 {t.stats.insights ?? 'Insights'}
 			</button>
 			<button
 				onclick={() => switchTab('compare')}
 				class="px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
 			>
-				⚔️ {translations?.stats.compare ?? 'Compare'}
+				⚔️ {t.stats.compare ?? 'Compare'}
 			</button>
 		</div>
 
@@ -2043,9 +2025,9 @@ return { days: allDays, maxCount, weeks };
 				<div class="flex items-center gap-4">
 					<div class="text-4xl">📜</div>
 					<div>
-						<h3 class="text-lg font-bold text-gray-800 dark:text-white">{translations?.stats?.previousSeasons || 'Previous Seasons'}</h3>
+						<h3 class="text-lg font-bold text-gray-800 dark:text-white">{t.stats?.previousSeasons || 'Previous Seasons'}</h3>
 						<p class="text-sm text-gray-600 dark:text-gray-400">
-							{translations?.stats?.seeHowWeDid || 'See how we did in 2024 (🎂 Cakes) and 2025 (🏃 Sporting)'}
+							{t.stats?.seeHowWeDid || 'See how we did in 2024 (🎂 Cakes) and 2025 (🏃 Sporting)'}
 						</p>
 					</div>
 				</div>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Metric, Person } from '$lib/server/db';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations, Locale } from '$lib/i18n';
+	import { locale } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
 
 	interface Comparison {
@@ -22,28 +21,11 @@
 
 	let { comparisons, metrics, person, totalEntries, metricTotals }: Props = $props();
 
-	let translations = $state<Translations | null>(null);
-	let currentLocale = $state<Locale>('en');
-
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
-
-	$effect(() => {
-		const unsubscribe = locale.subscribe(value => {
-			currentLocale = value;
-		});
-		return unsubscribe;
-	});
-
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 		if (typeof metric === 'string') {
-			return translateMetric(metric, currentLocale);
+			return translateMetric(metric, locale);
 		}
-		return translateMetric(metric.name, currentLocale, metric.name_nl);
+		return translateMetric(metric.name, locale, metric.name_nl);
 	}
 
 	let compareWith = $state<number | null>(null);

@@ -135,6 +135,7 @@ function initializeSchema(database: DatabaseType) {
 	CREATE INDEX IF NOT EXISTS idx_entries_person ON entries(person_id);
 	CREATE INDEX IF NOT EXISTS idx_entries_metric ON entries(metric_id);
 	CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(entry_date);
+	CREATE INDEX IF NOT EXISTS idx_entries_season_person ON entries(season_id, person_id);
 	CREATE INDEX IF NOT EXISTS idx_entry_audit_entry ON entry_audit(entry_id);
 `);
 

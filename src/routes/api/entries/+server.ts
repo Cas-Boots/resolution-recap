@@ -1,11 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { 
+import * as v from 'valibot';
+import {
 	getEntriesForSeason,
 	getEntriesForPerson,
-	createEntry, 
-	updateEntry, 
-	softDeleteEntry, 
+	createEntry,
+	updateEntry,
+	softDeleteEntry,
 	softDeleteEntries,
 	undeleteEntry,
 	undeleteEntries,
@@ -14,6 +15,8 @@ import {
 	checkAndUnlockAchievements,
 	ACHIEVEMENTS
 } from '$lib/server/db';
+import { checkAuth, getSeasonOrError } from '$lib/server/handlers';
+import { EntryCreateSchema, EntryUpdateSchema, EntryDeleteSchema } from '$lib/server/schemas';
 
 function parseTagList(rawTags: unknown): string[] {
 	if (rawTags === undefined || rawTags === null) return [];
@@ -71,9 +74,8 @@ function normalizeSingleSportTag(metricId: number, rawTags: unknown): { ok: true
 }
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	if (locals.role !== 'tracker' && locals.role !== 'admin') {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const deny = checkAuth(locals, 'tracker', 'admin');
+	if (deny) return deny;
 
 	const seasonId = url.searchParams.get('seasonId');
 	const personId = url.searchParams.get('personId');
@@ -113,16 +115,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (locals.role !== 'tracker') {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const deny = checkAuth(locals, 'tracker');
+	if (deny) return deny;
 
-	const { personId, metricId, entryDate, notes, tags } = await request.json();
-	const season = getActiveSeason();
-	
-	if (!season) {
-		return json({ error: 'No active season' }, { status: 400 });
-	}
+	const parsed = v.safeParse(EntryCreateSchema, await request.json());
+	if (!parsed.success) return json({ error: 'Invalid input', issues: v.flatten(parsed.issues) }, { status: 400 });
+	const { personId, metricId, entryDate, notes, tags } = parsed.output;
+
+	const { season, error: seasonError } = getSeasonOrError();
+	if (seasonError) return seasonError;
 
 	const normalized = normalizeSingleSportTag(metricId, tags);
 	if (!normalized.ok) {
@@ -139,11 +140,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const PUT: RequestHandler = async ({ request, locals }) => {
-	if (locals.role !== 'tracker' && locals.role !== 'admin') {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const deny = checkAuth(locals, 'tracker', 'admin');
+	if (deny) return deny;
 
-	const { id, personId, metricId, entryDate, tags } = await request.json();
+	const parsed = v.safeParse(EntryUpdateSchema, await request.json());
+	if (!parsed.success) return json({ error: 'Invalid input', issues: v.flatten(parsed.issues) }, { status: 400 });
+	const { id, personId, metricId, entryDate, tags } = parsed.output;
 	const normalized = normalizeSingleSportTag(metricId, tags);
 	if (!normalized.ok) {
 		return json({ error: normalized.error }, { status: 400 });
@@ -154,11 +156,12 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
-	if (locals.role !== 'tracker' && locals.role !== 'admin') {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const deny = checkAuth(locals, 'tracker', 'admin');
+	if (deny) return deny;
 
-	const { id, ids, action } = await request.json();
+	const parsed = v.safeParse(EntryDeleteSchema, await request.json());
+	if (!parsed.success) return json({ error: 'Invalid input', issues: v.flatten(parsed.issues) }, { status: 400 });
+	const { id, ids, action } = parsed.output;
 	const performedBy = locals.role || 'admin';
 	
 	// Support undelete action

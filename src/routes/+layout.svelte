@@ -3,7 +3,7 @@
 	import PinOverlay from '$lib/components/PinOverlay.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import CelebrationToaster from '$lib/components/CelebrationToaster.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { navigating } from '$app/stores';
@@ -33,7 +33,8 @@
 		return unsubscribe;
 	});
 
-	function handleAuthSuccess(newRole: 'tracker' | 'admin') {
+	async function handleAuthSuccess(newRole: 'tracker' | 'admin') {
+		await invalidateAll();
 		role = newRole;
 		void ensureRolePath(newRole, page.url.pathname);
 	}

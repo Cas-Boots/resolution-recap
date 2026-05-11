@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { PlayerStats } from '$lib/leveling';
 	import type { Metric, GoalWithNames, StreakData, EntryWithNames, ConsistencyData, Prediction, YearOverYearComparison } from '$lib/server/db';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations, Locale } from '$lib/i18n';
+	import { locale } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
 	import PersonInsightCard from './PersonInsightCard.svelte';
 
@@ -40,27 +39,9 @@
 		onSwitchToInsights
 	}: Props = $props();
 
-	// Locale / translations
-	let translations = $state<Translations | null>(null);
-	let currentLocale = $state<Locale>('en');
-
-	$effect(() => {
-		const unsub = t.subscribe((v) => {
-			translations = v;
-		});
-		return unsub;
-	});
-
-	$effect(() => {
-		const unsub = locale.subscribe((v) => {
-			currentLocale = v;
-		});
-		return unsub;
-	});
-
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
-		if (typeof metric === 'string') return translateMetric(metric, currentLocale);
-		return translateMetric(metric.name, currentLocale, metric.name_nl);
+		if (typeof metric === 'string') return translateMetric(metric, locale);
+		return translateMetric(metric.name, locale, metric.name_nl);
 	}
 
 	// Derive the sporting metric id

@@ -2,9 +2,8 @@
 	import type { PageData } from './$types';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { t } from '$lib/stores/locale';
-	import { pushAchievementCelebrations } from '$lib/stores/celebrations';
-	import type { Translations } from '$lib/i18n';
+	import { t } from '$lib/stores/locale.svelte';
+	import { pushAchievementCelebrations } from '$lib/stores/celebrations.svelte';
 	import { groupedSports } from '$lib/sports';
 
 	interface Props {
@@ -13,22 +12,12 @@
 
 	let { data }: Props = $props();
 
-	// Subscribe to translations
-	let translations = $state<Translations | null>(null);
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
-
-	// Predefined sport activity types - derived from shared source of truth
 	const SPORT_GROUPS = $derived(
 		groupedSports().map(group => ({
 			label: group.label,
 			sports: group.sports.map(s => ({
 				value: s.value,
-				label: `${s.emoji} ${translations?.sports[s.translationKey] ?? s.englishLabel}`
+				label: `${s.emoji} ${t.sports[s.translationKey] ?? s.englishLabel}`
 			}))
 		}))
 	);
@@ -235,7 +224,7 @@
 
 <div class="space-y-6">
 	<div class="bg-white dark:bg-gray-800/90 dark:backdrop-blur-sm rounded-2xl shadow-lg dark:shadow-indigo-500/10 p-6 dark:border dark:border-gray-700/50">
-		<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">➕ {translations?.nav.add ?? 'Add Entry'}</h1>
+		<h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">➕ {t.nav.add ?? 'Add Entry'}</h1>
 		{#if data.season}
 			<p class="text-gray-500 dark:text-gray-400">{data.season.name}</p>
 		{/if}

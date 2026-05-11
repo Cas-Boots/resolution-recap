@@ -2,23 +2,13 @@
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { t } from '$lib/stores/locale';
-	import type { Translations } from '$lib/i18n';
+	import { t } from '$lib/stores/locale.svelte';
 
 	interface Props {
 		data: PageData;
 	}
 
 	let { data }: Props = $props();
-
-	// Subscribe to translations
-	let translations = $state<Translations | null>(null);
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
 
 	// People management
 	let newPersonName = $state('');
@@ -285,7 +275,7 @@
 
 <div class="space-y-6">
 	<div class="bg-white rounded-2xl shadow-lg p-6">
-		<h1 class="text-2xl font-bold text-gray-800">⚙️ {translations?.nav.settings ?? 'Settings'}</h1>
+		<h1 class="text-2xl font-bold text-gray-800">⚙️ {t.nav.settings ?? 'Settings'}</h1>
 		<p class="text-gray-500 mt-1">Manage people and metrics</p>
 	</div>
 

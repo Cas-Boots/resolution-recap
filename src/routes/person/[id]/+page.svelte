@@ -2,8 +2,7 @@
 	import type { PageData } from './$types';
 	import { base } from '$app/paths';
 	import type { PlayerStats } from '$lib/leveling';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations, Locale } from '$lib/i18n';
+	import { locale, t } from '$lib/stores/locale.svelte';
 
 	import PersonOverviewTab from '$lib/components/person/PersonOverviewTab.svelte';
 	import PersonInsightsTab from '$lib/components/person/PersonInsightsTab.svelte';
@@ -17,22 +16,6 @@
 	}
 
 	let { data }: Props = $props();
-
-	// Subscribe to translations and locale
-	let translations = $state<Translations | null>(null);
-	let currentLocale = $state<Locale>('en');
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
-	$effect(() => {
-		const unsubscribe = locale.subscribe(value => {
-			currentLocale = value;
-		});
-		return unsubscribe;
-	});
 
 	// Cast playerStats from data
 	const playerStats = $derived((data as { playerStats?: PlayerStats }).playerStats);
@@ -183,7 +166,7 @@
 				onclick={() => activeTab = 'overview'}
 				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
-				📊 {translations?.stats.overview ?? 'Overview'}
+				📊 {t.stats.overview ?? 'Overview'}
 			</button>
 			<button
 				onclick={() => activeTab = 'insights'}
@@ -195,19 +178,19 @@
 				onclick={() => activeTab = 'calendar'}
 				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'calendar' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
-				📅 {translations?.stats.calendar ?? 'Calendar'}
+				📅 {t.stats.calendar ?? 'Calendar'}
 			</button>
 			<button
 				onclick={() => activeTab = 'achievements'}
 				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'achievements' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
-				🏅 {translations?.achievements.title ?? 'Badges'} ({unlockedKeys.size}/{data.allAchievements?.length || 0})
+				🏅 {t.achievements.title ?? 'Badges'} ({unlockedKeys.size}/{data.allAchievements?.length || 0})
 			</button>
 			<button
 				onclick={() => activeTab = 'compare'}
 				class="px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap {activeTab === 'compare' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}"
 			>
-				⚔️ {translations?.stats.compare ?? 'Compare'}
+				⚔️ {t.stats.compare ?? 'Compare'}
 			</button>
 		</div>
 

@@ -2,8 +2,7 @@
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
 	import { browser } from '$app/environment';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations } from '$lib/i18n';
+	import { locale, t, toggleLocale } from '$lib/stores/locale.svelte';
 
 	interface Props {
 		role: 'tracker' | 'admin';
@@ -16,8 +15,8 @@
 	let darkMode = $state(false);
 	let moreSheetOpen = $state(false);
 
-	let currentLocale = $derived($locale);
-	let currentTranslations = $derived($t);
+	let currentLocale = $derived(locale);
+	let currentTranslations = $derived(t);
 
 	// Initialize dark mode from localStorage on mount
 	$effect(() => {
@@ -39,10 +38,6 @@
 			localStorage.setItem('darkMode', String(darkMode));
 			applyDarkMode(darkMode);
 		}
-	}
-
-	function toggleLocale() {
-		locale.toggle();
 	}
 
 	function applyDarkMode(isDark: boolean) {

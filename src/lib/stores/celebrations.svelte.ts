@@ -1,5 +1,4 @@
 import { browser } from '$app/environment';
-import { writable } from 'svelte/store';
 
 export interface AchievementCelebration {
 	key: string;
@@ -20,11 +19,7 @@ const TOAST_DURATION_MS = 5000;
 const DEDUPE_TTL_MS = 1000 * 60 * 60 * 12;
 const DEDUPE_STORAGE_KEY = 'celebration_dedupe_map';
 
-const { subscribe, update } = writable<CelebrationToast[]>([]);
-
-function removeToast(id: string) {
-	update((queue) => queue.filter((toast) => toast.id !== id));
-}
+export let celebrations = $state<CelebrationToast[]>([]);
 
 function readDedupeMap(): Record<string, number> {
 	if (!browser) return {};
@@ -67,16 +62,18 @@ function shouldSuppressAndMark(dedupeKey: string): boolean {
 	return false;
 }
 
+export function removeCelebration(id: string) {
+	celebrations = celebrations.filter((toast) => toast.id !== id);
+}
+
 function enqueueToast(toast: Omit<CelebrationToast, 'id'>, dedupeKey: string) {
-	if (shouldSuppressAndMark(dedupeKey)) {
-		return;
-	}
+	if (shouldSuppressAndMark(dedupeKey)) return;
 
 	const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-	update((queue) => [...queue, { id, ...toast }]);
+	celebrations = [...celebrations, { id, ...toast }];
 
 	if (browser) {
-		setTimeout(() => removeToast(id), TOAST_DURATION_MS);
+		setTimeout(() => removeCelebration(id), TOAST_DURATION_MS);
 	}
 }
 
@@ -105,8 +102,3 @@ export function pushMilestoneCelebration(personId: number, metricName: string, m
 		`milestone:${personId}:${metricName.toLowerCase()}:${milestone}`
 	);
 }
-
-export const celebrations = {
-	subscribe,
-	remove: removeToast
-};

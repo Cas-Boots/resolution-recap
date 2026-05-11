@@ -1,4 +1,3 @@
-import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import { base } from '$app/paths';
 
@@ -19,9 +18,8 @@ const DB_NAME = 'recap-offline';
 const STORE_NAME = 'pending-entries';
 const DB_VERSION = 1;
 
-// Store for tracking pending entries count
-export const pendingEntriesCount = writable(0);
-export const isOnline = writable(true);
+export let pendingEntriesCount = $state(0);
+export let isOnline = $state(true);
 
 let db: IDBDatabase | null = null;
 let dbInitPromise: Promise<IDBDatabase> | null = null;
@@ -30,7 +28,6 @@ let listenersInitialized = false;
 let onlineHandler: (() => void) | null = null;
 let offlineHandler: (() => void) | null = null;
 
-// Initialize IndexedDB — caches the in-flight Promise so concurrent callers share one open() call
 async function initDB(): Promise<IDBDatabase> {
 	if (db) return db;
 	if (dbInitPromise) return dbInitPromise;
@@ -57,23 +54,22 @@ async function initDB(): Promise<IDBDatabase> {
 	return dbInitPromise;
 }
 
-// Add entry to offline queue
 export async function queueEntry(entry: Omit<QueuedEntry, 'id' | 'timestamp'>): Promise<void> {
 	if (!browser) return;
-	
-	const db = await initDB();
+
+	const database = await initDB();
 	const queuedEntry: QueuedEntry = {
 		...entry,
 		id: crypto.randomUUID(),
 		timestamp: Date.now(),
 		attempts: 0
 	};
-	
+
 	return new Promise((resolve, reject) => {
-		const tx = db.transaction(STORE_NAME, 'readwrite');
+		const tx = database.transaction(STORE_NAME, 'readwrite');
 		const store = tx.objectStore(STORE_NAME);
 		const request = store.add(queuedEntry);
-		
+
 		request.onsuccess = () => {
 			updatePendingCount();
 			resolve();
@@ -82,23 +78,21 @@ export async function queueEntry(entry: Omit<QueuedEntry, 'id' | 'timestamp'>): 
 	});
 }
 
-// Get all pending entries
 export async function getPendingEntries(): Promise<QueuedEntry[]> {
 	if (!browser) return [];
-	
-	const db = await initDB();
-	
+
+	const database = await initDB();
+
 	return new Promise((resolve, reject) => {
-		const tx = db.transaction(STORE_NAME, 'readonly');
+		const tx = database.transaction(STORE_NAME, 'readonly');
 		const store = tx.objectStore(STORE_NAME);
 		const request = store.getAll();
-		
+
 		request.onsuccess = () => resolve(request.result);
 		request.onerror = () => reject(request.error);
 	});
 }
 
-// Update a queue entry (e.g. increment attempt count)
 async function updateQueueEntry(entry: QueuedEntry): Promise<void> {
 	if (!browser) return;
 	const database = await initDB();
@@ -111,17 +105,16 @@ async function updateQueueEntry(entry: QueuedEntry): Promise<void> {
 	});
 }
 
-// Remove entry from queue (after successful sync)
 async function removeFromQueue(id: string): Promise<void> {
 	if (!browser) return;
-	
-	const db = await initDB();
-	
+
+	const database = await initDB();
+
 	return new Promise((resolve, reject) => {
-		const tx = db.transaction(STORE_NAME, 'readwrite');
+		const tx = database.transaction(STORE_NAME, 'readwrite');
 		const store = tx.objectStore(STORE_NAME);
 		const request = store.delete(id);
-		
+
 		request.onsuccess = () => {
 			updatePendingCount();
 			resolve();
@@ -130,13 +123,11 @@ async function removeFromQueue(id: string): Promise<void> {
 	});
 }
 
-// Update pending entries count
 async function updatePendingCount(): Promise<void> {
 	const entries = await getPendingEntries();
-	pendingEntriesCount.set(entries.length);
+	pendingEntriesCount = entries.length;
 }
 
-// Sync pending entries to server
 export async function syncPendingEntries(): Promise<{ synced: number; failed: number }> {
 	if (!browser || !navigator.onLine) return { synced: 0, failed: 0 };
 
@@ -165,7 +156,6 @@ export async function syncPendingEntries(): Promise<{ synced: number; failed: nu
 					await removeFromQueue(entry.id);
 					synced++;
 				} else if (res.status >= 400 && res.status < 500) {
-					// 4xx: bad request / auth — drop after MAX_ATTEMPTS to avoid infinite loop
 					const updated = { ...entry, attempts: (entry.attempts ?? 0) + 1 };
 					if (updated.attempts >= MAX_ATTEMPTS) {
 						await removeFromQueue(entry.id);
@@ -174,16 +164,13 @@ export async function syncPendingEntries(): Promise<{ synced: number; failed: nu
 					}
 					failed++;
 				} else {
-					// 5xx / network — retry on next sync
 					failed++;
 				}
 			} catch {
-				// Network error — retry on next sync
 				failed++;
 			}
 		}
 
-		// Re-drain any entries added while sync was in flight
 		const remaining = await getPendingEntries();
 		if (remaining.length > 0 && navigator.onLine) {
 			syncInFlight = null;
@@ -198,19 +185,15 @@ export async function syncPendingEntries(): Promise<{ synced: number; failed: nu
 	return syncInFlight;
 }
 
-// Initialize online/offline listeners
 export function initOfflineSupport(): (() => void) | void {
 	if (!browser) return;
 	if (listenersInitialized) return;
 	listenersInitialized = true;
-	
-	// Set initial online status
-	isOnline.set(navigator.onLine);
-	
-	// Listen for online/offline events
+
+	isOnline = navigator.onLine;
+
 	onlineHandler = async () => {
-		isOnline.set(true);
-		// Auto-sync when coming back online
+		isOnline = true;
 		const result = await syncPendingEntries();
 		if (result.synced > 0) {
 			console.log(`Synced ${result.synced} offline entries`);
@@ -224,13 +207,12 @@ export function initOfflineSupport(): (() => void) | void {
 	};
 
 	offlineHandler = () => {
-		isOnline.set(false);
+		isOnline = false;
 	};
 
 	window.addEventListener('online', onlineHandler);
 	window.addEventListener('offline', offlineHandler);
-	
-	// Initialize pending count
+
 	updatePendingCount();
 
 	return () => {
@@ -243,7 +225,6 @@ export function initOfflineSupport(): (() => void) | void {
 	};
 }
 
-// Create entry with offline fallback
 export async function createEntryWithOfflineFallback(
 	personId: number,
 	metricId: number,
@@ -252,8 +233,7 @@ export async function createEntryWithOfflineFallback(
 	tags?: string
 ): Promise<{ success: boolean; offline: boolean; data?: unknown }> {
 	if (!browser) return { success: false, offline: false };
-	
-	// If online, try to submit directly
+
 	if (navigator.onLine) {
 		try {
 			const res = await fetch(`${base}/api/entries`, {
@@ -265,17 +245,14 @@ export async function createEntryWithOfflineFallback(
 				const data = await res.json();
 				return { success: true, offline: false, data };
 			}
-			// 4xx: bad request or auth failure — surface to caller, don't queue
 			if (res.status >= 400 && res.status < 500) {
 				return { success: false, offline: false };
 			}
-			// 5xx: fall through to offline queue
 		} catch {
 			// Network error — fall through to offline queue
 		}
 	}
 
-	// Queue for later sync (network error or 5xx)
 	await queueEntry({ personId, metricId, entryDate, notes, tags });
 	return { success: true, offline: true };
 }
