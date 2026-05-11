@@ -79,15 +79,23 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const personId = url.searchParams.get('personId');
 	const limit = url.searchParams.get('limit');
 	const includeDeleted = url.searchParams.get('includeDeleted') === 'true';
-	const season = seasonId ? { id: parseInt(seasonId) } : getActiveSeason();
-	
+	const parsedSeasonId = seasonId ? parseInt(seasonId) : NaN;
+	if (seasonId && !Number.isFinite(parsedSeasonId)) {
+		return json({ error: 'Invalid seasonId' }, { status: 400 });
+	}
+	const season = seasonId ? { id: parsedSeasonId } : getActiveSeason();
+
 	if (!season) {
 		return json({ error: 'No active season' }, { status: 400 });
 	}
 
 	// If personId is provided, return entries for that person
 	if (personId) {
-		const entries = getEntriesForPerson(season.id, parseInt(personId), limit ? parseInt(limit) : 20);
+		const parsedPersonId = parseInt(personId);
+		if (!Number.isFinite(parsedPersonId)) {
+			return json({ error: 'Invalid personId' }, { status: 400 });
+		}
+		const entries = getEntriesForPerson(season.id, parsedPersonId, limit ? parseInt(limit) : 20);
 		return json(entries);
 	}
 

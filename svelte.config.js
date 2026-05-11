@@ -5,13 +5,11 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 
-	// Suppress intentional warnings for capturing initial prop values
+	// Suppressed globally: pages seed $state from the server `data` prop as an initial value,
+	// then manage it client-side (tab selection, secondary fetch results, form fields, etc.).
+	// Wrapping in $derived would reset UI state on every navigation — intentionally avoided.
 	compilerOptions: {
-		warningFilter: (warning) => {
-			// Suppress state_referenced_locally for intentional initial value captures
-			if (warning.code === 'state_referenced_locally') return false;
-			return true;
-		}
+		warningFilter: (warning) => warning.code !== 'state_referenced_locally'
 	},
 
 	kit: {

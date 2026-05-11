@@ -2,10 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { changeTrackerPin, changeAdminPin } from '$lib/server/db';
 
-export const PUT: RequestHandler = async ({ request, cookies }) => {
-	// Only admin can change PINs
-	const role = cookies.get('auth_role');
-	if (role !== 'admin') {
+export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
+	if (locals.role !== 'admin') {
 		return json({ error: 'Unauthorized - Admin only' }, { status: 403 });
 	}
 

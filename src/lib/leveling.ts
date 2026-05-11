@@ -186,10 +186,3 @@ export function getPlayerStats(stats: {
 	};
 }
 
-// Format XP for display
-export function formatXP(xp: number): string {
-	if (xp >= 1000) {
-		return `${(xp / 1000).toFixed(1)}k`;
-	}
-	return xp.toString();
-}

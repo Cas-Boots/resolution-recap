@@ -26,24 +26,6 @@ const countryList: CountryInfo[] = worldCountries
 	}))
 	.sort((a, b) => a.name.localeCompare(b.name));
 
-export const COUNTRIES: Record<string, CountryInfo> = Object.fromEntries(
-	countryList.map((country) => [country.code, country])
-);
-
 export function getSortedCountries(): CountryInfo[] {
 	return countryList;
-}
-
-export function getCountry(code: string): CountryInfo | undefined {
-	return COUNTRIES[code.toUpperCase()];
-}
-
-export function searchCountries(query: string): CountryInfo[] {
-	const lowerQuery = query.trim().toLowerCase();
-	if (!lowerQuery) return countryList;
-	return countryList.filter(
-		(country) =>
-			country.name.toLowerCase().includes(lowerQuery) ||
-			country.code.toLowerCase().includes(lowerQuery)
-	);
 }
