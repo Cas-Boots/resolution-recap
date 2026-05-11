@@ -2,8 +2,7 @@
 	import type { Metric, Person, Season, EntryWithNames } from '$lib/server/db';
 	import { base } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
-	import { locale, t } from '$lib/stores/locale';
-	import type { Translations, Locale } from '$lib/i18n';
+	import { locale, t } from '$lib/stores/locale.svelte';
 	import { translateMetric } from '$lib/i18n';
 	import { groupedSports, findSport, canonicalSportTag, LEGACY_SPORT_DISPLAY } from '$lib/sports';
 
@@ -17,28 +16,11 @@
 
 	let { entries, metrics, person, season, role }: Props = $props();
 
-	let translations = $state<Translations | null>(null);
-	let currentLocale = $state<Locale>('en');
-
-	$effect(() => {
-		const unsubscribe = t.subscribe(value => {
-			translations = value;
-		});
-		return unsubscribe;
-	});
-
-	$effect(() => {
-		const unsubscribe = locale.subscribe(value => {
-			currentLocale = value;
-		});
-		return unsubscribe;
-	});
-
 	function getTranslatedMetricName(metric: string | { name: string; name_nl?: string | null }): string {
 		if (typeof metric === 'string') {
-			return translateMetric(metric, currentLocale);
+			return translateMetric(metric, locale);
 		}
-		return translateMetric(metric.name, currentLocale, metric.name_nl);
+		return translateMetric(metric.name, locale, metric.name_nl);
 	}
 
 	const SPORT_GROUPS = $derived(
@@ -46,7 +28,7 @@
 			label: group.label,
 			sports: group.sports.map(s => ({
 				value: s.value,
-				label: `${s.emoji} ${translations?.sports[s.translationKey] ?? s.englishLabel}`
+				label: `${s.emoji} ${t.sports[s.translationKey] ?? s.englishLabel}`
 			}))
 		}))
 	);
@@ -94,7 +76,7 @@
 		const canonical = canonicalSportTag(tag);
 		const sport = findSport(canonical);
 		if (sport) {
-			return `${sport.emoji} ${translations?.sports[sport.translationKey] ?? sport.englishLabel}`;
+			return `${sport.emoji} ${t.sports[sport.translationKey] ?? sport.englishLabel}`;
 		}
 		const legacy = LEGACY_SPORT_DISPLAY[canonical];
 		if (legacy) return `${legacy.emoji} ${legacy.englishLabel}`;
@@ -298,7 +280,7 @@
 	{@const editMetric = metrics.find((metric) => metric.id === editMetricId)}
 	{@const isSportingEdit = isSportingMetricId(editMetricId)}
 	<div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-		<div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+		<div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto">
 			<h2 class="text-lg font-bold text-gray-800 mb-1">Edit Past Entry</h2>
 			<p class="text-sm text-gray-500 mb-4">Update the date and, for sporting entries, the specific sport activity.</p>
 
