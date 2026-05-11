@@ -21,6 +21,7 @@ services:
       # Set these in Dokploy environment variables!
       - TRACKER_PIN=${TRACKER_PIN}
       - ADMIN_PIN=${ADMIN_PIN}
+      - AUTH_SECRET=${AUTH_SECRET}
       - BACKUP_TOKEN=${BACKUP_TOKEN}
     networks:
       - dokploy-network
