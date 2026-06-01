@@ -859,6 +859,7 @@
 		switch (tag) {
 			case 'running': return '🏃';
 			case 'cycling': return '🚴';
+			case 'mountain-biking': return '🚵';
 			case 'swimming': return '🏊';
 			case 'gym': return '🏋️';
 			case 'yoga': return '🧘';
