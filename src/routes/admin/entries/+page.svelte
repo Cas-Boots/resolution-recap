@@ -14,6 +14,7 @@
 	let loading = $state(false);
 	let editingEntry = $state<{ id: number; personId: number; metricId: number; entryDate: string } | null>(null);
 	let activeTab = $state<'active' | 'deleted' | 'audit'>('active');
+	let actionError = $state('');
 
 	function toggleSelection(id: number) {
 		const newSet = new Set(selectedIds);
@@ -56,6 +57,7 @@
 		if (!confirm(`Delete ${selectedIds.size} entries? They can be restored later.`)) return;
 
 		loading = true;
+		actionError = '';
 
 		try {
 			const res = await fetch(`${base}/api/entries`, {
@@ -67,7 +69,11 @@
 			if (res.ok) {
 				selectedIds = new Set();
 				await invalidateAll();
+			} else {
+				actionError = 'Failed to delete the selected entries. Please try again.';
 			}
+		} catch {
+			actionError = 'Failed to delete the selected entries. Please try again.';
 		} finally {
 			loading = false;
 		}
@@ -77,6 +83,7 @@
 		if (selectedDeletedIds.size === 0) return;
 
 		loading = true;
+		actionError = '';
 
 		try {
 			const res = await fetch(`${base}/api/entries`, {
@@ -88,7 +95,11 @@
 			if (res.ok) {
 				selectedDeletedIds = new Set();
 				await invalidateAll();
+			} else {
+				actionError = 'Failed to restore the selected entries. Please try again.';
 			}
+		} catch {
+			actionError = 'Failed to restore the selected entries. Please try again.';
 		} finally {
 			loading = false;
 		}
@@ -98,6 +109,7 @@
 		if (!confirm('Delete this entry? It can be restored later.')) return;
 
 		loading = true;
+		actionError = '';
 
 		try {
 			const res = await fetch(`${base}/api/entries`, {
@@ -108,7 +120,11 @@
 
 			if (res.ok) {
 				await invalidateAll();
+			} else {
+				actionError = 'Failed to delete this entry. Please try again.';
 			}
+		} catch {
+			actionError = 'Failed to delete this entry. Please try again.';
 		} finally {
 			loading = false;
 		}
@@ -116,6 +132,7 @@
 
 	async function undeleteOne(id: number) {
 		loading = true;
+		actionError = '';
 
 		try {
 			const res = await fetch(`${base}/api/entries`, {
@@ -126,7 +143,11 @@
 
 			if (res.ok) {
 				await invalidateAll();
+			} else {
+				actionError = 'Failed to restore this entry. Please try again.';
 			}
+		} catch {
+			actionError = 'Failed to restore this entry. Please try again.';
 		} finally {
 			loading = false;
 		}
@@ -228,6 +249,12 @@
 			No active season. Go to Seasons to set one up.
 		</div>
 	{:else}
+		{#if actionError}
+			<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-red-800 text-sm">
+				⚠️ {actionError}
+			</div>
+		{/if}
+
 		<!-- Tabs -->
 		<div class="flex gap-2 bg-white rounded-xl shadow p-2">
 			<button
