@@ -975,7 +975,7 @@ export function updateEntry(id: number, personId: number, metricId: number, entr
 export function softDeleteEntry(id: number, performedBy: 'tracker' | 'admin' = 'admin'): void {
 	db.transaction(() => {
 		const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id) as Entry;
-		db.prepare('UPDATE entries SET deleted_at = datetime("now") WHERE id = ?').run(id);
+		db.prepare(`UPDATE entries SET deleted_at = datetime('now') WHERE id = ?`).run(id);
 		logAudit(id, 'delete', performedBy, {
 			person_id: entry.person_id,
 			metric_id: entry.metric_id,
