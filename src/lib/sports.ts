@@ -52,6 +52,8 @@ export const SPORTS: readonly SportEntry[] = [
 	// Combat
 	{ value: 'boxing',        emoji: '🥊',  group: 'Combat',        translationKey: 'boxing',       englishLabel: 'Boxing' },
 	{ value: 'martial-arts',  emoji: '🥋',  group: 'Combat',        translationKey: 'martialArts',  englishLabel: 'Martial Arts' },
+	// Golf
+	{ value: 'golf',          emoji: '⛳',  group: 'Golf',          translationKey: 'golf',         englishLabel: 'Golf' },
 	// Other
 	{ value: 'dance',         emoji: '💃',  group: 'Other',         translationKey: 'dance',        englishLabel: 'Dance' },
 	{ value: 'other',         emoji: '🏅',  group: 'Other',         translationKey: 'other',        englishLabel: 'Other' },
