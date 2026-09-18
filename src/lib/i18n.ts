@@ -121,6 +121,7 @@ export interface Translations {
 		tableTennis: string;
 		korfball: string;
 		paddleboarding: string;
+		golf: string;
 		other: string;
 	};
 	
@@ -294,6 +295,7 @@ export const translations: Record<Locale, Translations> = {
 			tableTennis: 'Table Tennis',
 			korfball: 'Korfball',
 			paddleboarding: 'Paddleboarding',
+			golf: 'Golf',
 			other: 'Other',
 		},
 		
@@ -462,6 +464,7 @@ export const translations: Record<Locale, Translations> = {
 			tableTennis: 'Tafeltennis',
 			korfball: 'Korfbal',
 			paddleboarding: 'Padelboarden',
+			golf: 'Golfen',
 			other: 'Anders',
 		},
 		
