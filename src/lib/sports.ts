@@ -18,6 +18,7 @@ export const SPORTS: readonly SportEntry[] = [
 	{ value: 'swimming',      emoji: '🏊',  group: 'Water',         translationKey: 'swimming',     englishLabel: 'Swimming' },
 	{ value: 'kayaking',      emoji: '🛶',  group: 'Water',         translationKey: 'kayaking',     englishLabel: 'Kayaking' },
 	{ value: 'rafting',       emoji: '🚣',  group: 'Water',         translationKey: 'rafting',      englishLabel: 'Rafting' },
+	{ value: 'canyoning',     emoji: '🏞️', group: 'Water',         translationKey: 'canyoning',    englishLabel: 'Canyoning' },
 	{ value: 'rowing',        emoji: '🚣',  group: 'Water',         translationKey: 'rowing',       englishLabel: 'Rowing' },
 	{ value: 'paddleboarding', emoji: '🏄', group: 'Water',         translationKey: 'paddleboarding', englishLabel: 'Paddleboarding' },
 	// Gym & Fitness

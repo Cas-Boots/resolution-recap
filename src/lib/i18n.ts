@@ -113,6 +113,7 @@ export interface Translations {
 		hyrox: string;
 		kayaking: string;
 		rafting: string;
+		canyoning: string;
 		rowing: string;
 		bootcamp: string;
 		pilates: string;
@@ -286,6 +287,7 @@ export const translations: Record<Locale, Translations> = {
 			hyrox: 'Hyrox',
 			kayaking: 'Kayaking',
 			rafting: 'Rafting',
+			canyoning: 'Canyoning',
 			rowing: 'Rowing',
 			bootcamp: 'Bootcamp',
 			pilates: 'Pilates',
@@ -454,6 +456,7 @@ export const translations: Record<Locale, Translations> = {
 			hyrox: 'Hyrox',
 			kayaking: 'Kajakken',
 			rafting: 'Raften',
+			canyoning: 'Canyoning',
 			rowing: 'Roeien',
 			bootcamp: 'Bootcamp',
 			pilates: 'Pilates',
