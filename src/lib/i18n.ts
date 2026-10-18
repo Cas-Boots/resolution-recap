@@ -93,6 +93,7 @@ export interface Translations {
 		yoga: string;
 		hiking: string;
 		mountainBiking: string;
+		kickScooter: string;
 		tennis: string;
 		padel: string;
 		football: string;
@@ -267,6 +268,7 @@ export const translations: Record<Locale, Translations> = {
 			yoga: 'Yoga',
 			hiking: 'Hiking',
 			mountainBiking: 'Mountain Biking',
+			kickScooter: 'Kick Scooter',
 			tennis: 'Tennis',
 			padel: 'Padel',
 			football: 'Football',
@@ -436,6 +438,7 @@ export const translations: Record<Locale, Translations> = {
 			yoga: 'Yoga',
 			hiking: 'Wandelen',
 			mountainBiking: 'Mountainbiken',
+			kickScooter: 'Steppen',
 			tennis: 'Tennis',
 			padel: 'Padel',
 			football: 'Voetbal',

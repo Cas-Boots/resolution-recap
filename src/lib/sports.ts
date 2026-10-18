@@ -14,6 +14,7 @@ export const SPORTS: readonly SportEntry[] = [
 	{ value: 'cycling',        emoji: '🚴',  group: 'Cardio',        translationKey: 'cycling',       englishLabel: 'Cycling' },
 	{ value: 'mountain-biking', emoji: '🚵', group: 'Cardio',       translationKey: 'mountainBiking', englishLabel: 'Mountain Biking' },
 	{ value: 'hiking',         emoji: '🥾',  group: 'Cardio',        translationKey: 'hiking',        englishLabel: 'Hiking' },
+	{ value: 'kick-scooter',   emoji: '🛴',  group: 'Cardio',        translationKey: 'kickScooter',   englishLabel: 'Kick Scooter' },
 	// Water
 	{ value: 'swimming',      emoji: '🏊',  group: 'Water',         translationKey: 'swimming',     englishLabel: 'Swimming' },
 	{ value: 'kayaking',      emoji: '🛶',  group: 'Water',         translationKey: 'kayaking',     englishLabel: 'Kayaking' },
@@ -65,6 +66,7 @@ export const SPORT_ALIASES: Record<string, string> = {
 	'skeeleren':      'road-skating',
 	'soccer':         'football',
 	'mountainbiking': 'mountain-biking',
+	'steppen':        'kick-scooter',
 };
 
 // Tags that appear in historical data but are not selectable in forms

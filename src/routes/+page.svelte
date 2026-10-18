@@ -860,6 +860,8 @@
 			case 'running': return '🏃';
 			case 'cycling': return '🚴';
 			case 'mountain-biking': return '🚵';
+			case 'kick-scooter': return '🛴';
+			case 'steppen': return '🛴';
 			case 'swimming': return '🏊';
 			case 'gym': return '🏋️';
 			case 'yoga': return '🧘';
