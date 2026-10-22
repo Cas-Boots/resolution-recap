@@ -1,6 +1,6 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import os from 'os';
-import { verifyRole } from '$lib/server/auth';
+import { verifyRole, AUTH_COOKIE, authCookieOptions } from '$lib/server/auth';
 
 // Log network interfaces at startup
 function logNetworkInterfaces() {
@@ -98,8 +98,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		const role = verifyRole(event.cookies.get('auth_role'));
-		if (!role) event.cookies.delete('auth_role', { path: '/' });
+		const authCookie = event.cookies.get(AUTH_COOKIE);
+		const role = verifyRole(authCookie);
+		if (authCookie && !role) {
+			// Only clear a cookie that is actually present and invalid. Clearing on a
+			// missing cookie wiped valid logins whenever a request arrived without it.
+			const { maxAge: _maxAge, ...options } = authCookieOptions();
+			event.cookies.delete(AUTH_COOKIE, options);
+		} else if (role && event.request.method === 'GET' && !event.url.pathname.startsWith('/_app')) {
+			// Sliding session: push the expiry forward on each visit so active users never get logged out
+			event.cookies.set(AUTH_COOKIE, authCookie!, authCookieOptions());
+		}
 		event.locals.role = role;
 
 		const response = await resolve(event);

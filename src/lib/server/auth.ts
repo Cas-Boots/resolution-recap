@@ -11,6 +11,21 @@ function getSecret(): string {
 	return secret || 'dev-only-insecure-placeholder';
 }
 
+export const AUTH_COOKIE = 'auth_role';
+
+// 'lax' (not 'strict') so the cookie is still sent when the app is opened from a
+// link in another app (WhatsApp, mail, home-screen shortcut on some platforms).
+// With 'strict' those visits arrived without a cookie and looked logged out.
+export function authCookieOptions() {
+	return {
+		path: '/',
+		httpOnly: true,
+		secure: process.env.NODE_ENV === 'production',
+		sameSite: 'lax' as const,
+		maxAge: 60 * 60 * 24 * 365 // 1 year, refreshed on every visit (sliding)
+	};
+}
+
 export function signRole(role: 'tracker' | 'admin'): string {
 	const mac = createHmac('sha256', getSecret()).update(role).digest('base64url');
 	return `${role}.${mac}`;
