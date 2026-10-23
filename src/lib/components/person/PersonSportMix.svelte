@@ -25,7 +25,7 @@
 	}
 
 	// Known group order
-	const GROUP_ORDER = ['Cardio', 'Water', 'Gym & Fitness', 'Mind & Body', 'Racket', 'Team', 'Climbing', 'Winter', 'Combat', 'Other'];
+	const GROUP_ORDER = ['Cardio', 'Water', 'Gym & Fitness', 'Mind & Body', 'Racket', 'Team', 'Climbing', 'Winter', 'Combat', 'Golf', 'Other'];
 
 	const grouped = $derived.by(() => {
 		// Apply limit if set
