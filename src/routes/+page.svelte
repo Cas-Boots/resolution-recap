@@ -875,6 +875,7 @@
 			case 'climbing': return '🧗';
 			case 'bouldering': return '🧗';
 			case 'skiing': return '⛷️';
+			case 'indoor-skiing': return '⛷️';
 			case 'ice-skating': return '⛸️';
 			case 'road-skating': return '🛼';
 			case 'skating': return '⛸️';
