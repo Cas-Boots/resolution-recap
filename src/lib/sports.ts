@@ -47,6 +47,7 @@ export const SPORTS: readonly SportEntry[] = [
 	{ value: 'bouldering',    emoji: '🧗',  group: 'Climbing',      translationKey: 'bouldering',   englishLabel: 'Bouldering' },
 	// Winter
 	{ value: 'skiing',        emoji: '⛷️', group: 'Winter',        translationKey: 'skiing',       englishLabel: 'Skiing' },
+	{ value: 'indoor-skiing', emoji: '⛷️', group: 'Winter',        translationKey: 'indoorSkiing', englishLabel: 'Indoor Skiing (Treadmill)' },
 	{ value: 'snowboarding',  emoji: '🏂',  group: 'Winter',        translationKey: 'snowboarding', englishLabel: 'Snowboarding' },
 	{ value: 'ice-skating',   emoji: '⛸️', group: 'Winter',        translationKey: 'iceSkating',   englishLabel: 'Ice Skating' },
 	{ value: 'road-skating',  emoji: '🛼',  group: 'Winter',        translationKey: 'roadSkating',  englishLabel: 'Road Skating' },
